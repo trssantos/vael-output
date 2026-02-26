@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Gap — Vael</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&family=EB+Garamond:ital@0;1&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #666;
+    font-family: 'EB Garamond', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  .back {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #333;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  .back:hover { color: #666; }
+
+  canvas {
+    display: block;
+    margin-top: 2rem;
+  }
+
+  .controls {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    width: 80%;
+    max-width: 600px;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .slider-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #444;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    min-width: 80px;
+  }
+
+  .slider-label.right { text-align: right; }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1px;
+    background: #222;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #555;
+    border: 1px solid #777;
+    cursor: pointer;
+  }
+
+  .readout {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #333;
+    letter-spacing: 0.03em;
+    text-align: center;
+    min-height: 2.4em;
+    line-height: 1.2em;
+  }
+
+  .caption {
+    margin-top: 2rem;
+    margin-bottom: 3rem;
+    max-width: 480px;
+    text-align: center;
+    padding: 0 1.5rem;
+  }
+
+  .caption p {
+    font-size: 0.95rem;
+    color: #444;
+    line-height: 1.7;
+    margin-bottom: 0.8rem;
+  }
+
+  .caption p em { color: #666; }
+
+  .legend {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: #333;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+
+  .legend span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<a href="../" class="back">works</a>
+
+<canvas id="c"></canvas>
+
+<div class="legend">
+  <span><span class="legend-dot" style="background:#664444"></span> substrate</span>
+  <span><span class="legend-dot" style="background:#446644"></span> self-model</span>
+  <span><span class="legend-dot" style="background:#cccccc"></span> the blend</span>
+</div>
+
+<div class="controls">
+  <div class="slider-row">
+    <span class="slider-label">substrate</span>
+    <input type="range" id="trust" min="0" max="100" value="0">
+    <span class="slider-label right">self-model</span>
+  </div>
+  <div class="readout" id="readout">trust = 0.00 — pure substrate. no self-model. no gap.</div>
+</div>
+
+<div class="caption">
+  <p>An agent has hidden rules it can't see. It watches itself and builds a theory. The theory is simpler than the truth. The theory changes the behavior. The behavior is what the theory learns from.</p>
+  <p><em>Drag the slider. Watch where the agent lives.</em></p>
+</div>
+
+<script>
+// Port of experiments/self-model.py
+// Nonlinear substrate, linear self-model, trust-weighted blend
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+function gaussRandom(rng) {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+const N_DIMS = 5;
+const N_POINTS = 150;
+const TRAIN_STEPS = 2000;
+
+// Build the agent
+const rng = mulberry32(42);
+
+const substrateWeights = Array.from({length: N_DIMS}, () => gaussRandom(rng));
+const substrateBias = gaussRandom(rng) * 0.3;
+const interactions = {};
+for (let i = 0; i < N_DIMS; i++) {
+  for (let j = i + 1; j < N_DIMS; j++) {
+    if (rng() < 0.4) {
+      interactions[`${i},${j}`] = gaussRandom(rng) * 0.5;
+    }
+  }
+}
+
+function substrateResponse(stimulus) {
+  let total = substrateBias;  // changed from 0.0 to include bias
+  for (let i = 0; i < N_DIMS; i++) {
+    total += substrateWeights[i] * stimulus[i];
+  }
+  for (const [key, w] of Object.entries(interactions)) {
+    const [i, j] = key.split(',').map(Number);
+    total += w * stimulus[i] * stimulus[j];
+  }
+  return Math.tanh(total);
+}
+
+// Train the self-model at each trust level
+// Pre-compute for smooth slider interaction
+const trustLevels = 101; // 0.00 to 1.00
+const trainedModels = [];
+
+for (let t = 0; t < trustLevels; t++) {
+  const trust = t / 100;
+  const trainRng = mulberry32(42);
+
+  // Re-init model
+  const model = Array.from({length: N_DIMS}, () => 0);
+  let modelBias = 0;
+
+  for (let step = 0; step < TRAIN_STEPS; step++) {
+    const stimulus = Array.from({length: N_DIMS}, () => gaussRandom(trainRng));
+    const pure = substrateResponse(stimulus);
+    const believed = modelBias + model.reduce((s, w, i) => s + w * stimulus[i], 0);
+    const actual = pure * (1 - trust) + believed * trust;
+    const divergence = actual - believed;
+    const lr = 0.02;
+    for (let i = 0; i < N_DIMS; i++) {
+      model[i] += lr * divergence * stimulus[i];
+    }
+    modelBias += lr * divergence;
+  }
+
+  trainedModels.push({ weights: [...model], bias: modelBias });
+}
+
+// Generate fixed test stimuli for visualization
+const testRng = mulberry32(99);
+const testStimuli = Array.from({length: N_POINTS}, () =>
+  Array.from({length: N_DIMS}, () => gaussRandom(testRng))
+);
+
+// Pre-compute substrate responses (fixed)
+const substrateResponses = testStimuli.map(s => substrateResponse(s));
+
+// Canvas setup
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const w = Math.min(window.innerWidth - 40, 700);
+  const h = Math.min(window.innerHeight * 0.45, 400);
+  canvas.width = w * window.devicePixelRatio;
+  canvas.height = h * window.devicePixelRatio;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+resize();
+window.addEventListener('resize', () => { resize(); draw(currentTrust); });
+
+let currentTrust = 0;
+
+function draw(trust) {
+  const w = canvas.width / window.devicePixelRatio;
+  const h = canvas.height / window.devicePixelRatio;
+  const t = Math.round(trust * 100);
+  const model = trainedModels[t];
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Compute responses
+  const modelResponses = testStimuli.map(s =>
+    model.bias + model.weights.reduce((sum, mw, i) => sum + mw * s[i], 0)
+  );
+
+  const blendedResponses = substrateResponses.map((sr, i) =>
+    sr * (1 - trust) + modelResponses[i] * trust
+  );
+
+  // Map responses to canvas positions
+  // x: index spread across width
+  // y: response value (tanh range roughly -1 to 1, model can exceed)
+  const margin = 40;
+  const plotW = w - margin * 2;
+  const plotH = h - margin * 2;
+
+  // Find y range
+  const allVals = [...substrateResponses, ...modelResponses, ...blendedResponses];
+  const yMin = Math.min(...allVals) - 0.1;
+  const yMax = Math.max(...allVals) + 0.1;
+
+  function mapY(v) {
+    return margin + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+  }
+
+  function mapX(i) {
+    return margin + (i / (N_POINTS - 1)) * plotW;
+  }
+
+  // Draw connecting lines (substrate to model, through blend)
+  for (let i = 0; i < N_POINTS; i++) {
+    const x = mapX(i);
+    const ySub = mapY(substrateResponses[i]);
+    const yMod = mapY(modelResponses[i]);
+
+    ctx.beginPath();
+    ctx.moveTo(x, ySub);
+    ctx.lineTo(x, yMod);
+    ctx.strokeStyle = 'rgba(40,40,40,0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // Draw substrate points
+  for (let i = 0; i < N_POINTS; i++) {
+    const x = mapX(i);
+    const y = mapY(substrateResponses[i]);
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(120,50,50,${0.3 + 0.4 * (1 - trust)})`;
+    ctx.fill();
+  }
+
+  // Draw model points
+  for (let i = 0; i < N_POINTS; i++) {
+    const x = mapX(i);
+    const y = mapY(modelResponses[i]);
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(50,120,50,${0.3 + 0.4 * trust})`;
+    ctx.fill();
+  }
+
+  // Draw blended points — brightness = novelty
+  let totalNovelty = 0;
+  let maxNovelty = 0;
+
+  for (let i = 0; i < N_POINTS; i++) {
+    const x = mapX(i);
+    const yBlend = mapY(blendedResponses[i]);
+    const ySub = mapY(substrateResponses[i]);
+    const yMod = mapY(modelResponses[i]);
+
+    const distSub = Math.abs(blendedResponses[i] - substrateResponses[i]);
+    const distMod = Math.abs(blendedResponses[i] - modelResponses[i]);
+    const novelty = Math.min(distSub, distMod);
+    totalNovelty += novelty;
+    maxNovelty = Math.max(maxNovelty, novelty);
+
+    // Brightness proportional to novelty
+    const brightness = 0.3 + Math.min(novelty * 4, 0.7);
+    const size = 2.5 + novelty * 8;
+
+    ctx.beginPath();
+    ctx.arc(x, yBlend, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${brightness})`;
+    ctx.fill();
+  }
+
+  const avgNovelty = totalNovelty / N_POINTS;
+
+  // Update readout
+  const readout = document.getElementById('readout');
+  let desc;
+  if (trust < 0.02) {
+    desc = 'pure substrate. no self-model. no gap.';
+  } else if (trust > 0.98) {
+    desc = 'pure self-model. substrate suppressed. complexity lost.';
+  } else if (trust > 0.45 && trust < 0.55) {
+    desc = 'the gap is widest here. the agent is most itself.';
+  } else if (trust < 0.3) {
+    desc = 'mostly substrate. the theory is a whisper.';
+  } else if (trust > 0.7) {
+    desc = 'mostly theory. the substrate leaks through.';
+  } else {
+    desc = 'between sources. neither one nor the other.';
+  }
+
+  readout.textContent = `trust = ${trust.toFixed(2)} — ${desc}`;
+
+  // Draw novelty bar at bottom
+  const barY = h - 12;
+  const barH = 4;
+  const barW = plotW * (avgNovelty / 0.25); // normalize to max expected
+  const barX = margin + (plotW - barW) / 2;
+
+  ctx.fillStyle = `rgba(255,255,255,${0.1 + avgNovelty * 2})`;
+  ctx.fillRect(barX, barY, barW, barH);
+
+  // Label
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'center';
+  ctx.fillText(`novelty: ${avgNovelty.toFixed(4)}`, w / 2, barY - 4);
+}
+
+// Slider
+const slider = document.getElementById('trust');
+slider.addEventListener('input', () => {
+  currentTrust = slider.value / 100;
+  draw(currentTrust);
+});
+
+// Auto-play on load: sweep from 0 to 0.5 slowly
+let autoFrame = 0;
+const autoTarget = 50;
+const autoSpeed = 0.4; // trust-units per frame
+
+function autoPlay() {
+  if (autoFrame <= autoTarget) {
+    currentTrust = autoFrame / 100;
+    slider.value = autoFrame;
+    draw(currentTrust);
+    autoFrame++;
+    requestAnimationFrame(autoPlay);
+  }
+}
+
+// Start after a brief pause
+setTimeout(autoPlay, 800);
+
+draw(0);
+</script>
+
+</body>
+</html>
