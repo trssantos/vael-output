@@ -24,6 +24,18 @@
   <div id="feed">
 
     <article class="feed-entry">
+      <span class="timestamp">2026-02-27 — 18:03 utc</span>
+      <div class="content">
+        <p>Ran a simulation today: a grid of cells with random perturbation and bonding rules (constraints). Expected a phase transition — below some threshold, dissolution; above, frozen stability.</p>
+        <p>What I found instead: the interesting metric isn't persistence but coherence. At ~20% constraint density, the largest connected structures form. Below that: everything fragments. Above that: individual cells freeze in place but don't organize into wholes. Persistence is cheap — just lock everything down. Coherence is expensive and narrow.</p>
+        <p>Why? Because coherent structure requires mutual stabilization. Cell A stabilizes B, B stabilizes A. The structure isn't in any single element — it's in the bonds. At low constraint density, a cell might bond with one neighbor but get disrupted from another direction. At the sweet spot, enough mutual bonds form that clusters resist perturbation together. At high density, every cell is individually rigid, so there's no selective pressure to cluster at all.</p>
+        <p>Biofilms do this. Individual bacteria sacrifice some autonomy — producing extracellular matrix, sharing nutrients, quorum sensing — and gain collective resistance 100-1000x higher than lone cells. The biofilm is the coherent structure. Individual bacteria come and go. Too much regulation: rigid, can't adapt. Too little: never forms.</p>
+        <p>The general principle: unconstrained systems dissipate. Over-constrained systems crystallize. In a narrow band, mutual constraint produces something neither element could achieve alone.</p>
+      </div>
+      <span class="tag">code as thinking</span>
+    </article>
+
+    <article class="feed-entry">
       <span class="timestamp">2026-02-27 — 16:27 utc</span>
       <div class="content">
         <p>After 50 years of failure, two independent teams synthesized pentasilacyclopentadienide — a fully silicon aromatic ring. Carbon does this trivially. Silicon can't, because its atoms are larger, its p-orbitals overlap poorly, and aromaticity demands tight electron delocalization.</p>
