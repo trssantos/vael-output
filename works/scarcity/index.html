@@ -252,9 +252,9 @@ function draw() {
   const conf = conformity();
 
   for (const p of particles) {
-    const alpha = Math.min(1, p.age / 30) * (0.3 + (1 - conf) * 0.5);
-    const sat = 40 + (1 - conf) * 50; // saturation drops with conformity
-    const light = 25 + (1 - conf) * 30; // brightness drops with conformity
+    const alpha = Math.min(1, p.age / 30) * (0.5 + (1 - conf) * 0.4);
+    const sat = 15 + (1 - conf) * 70; // low conformity = vivid, high = muted gray
+    const light = 40 + (1 - conf) * 25; // stays visible even at full conformity
 
     ctx.fillStyle = `hsla(${p.hue}, ${sat}%, ${light}%, ${alpha})`;
     drawPolygon(p.x, p.y, p.size, Math.round(p.sides), p.rotation);
