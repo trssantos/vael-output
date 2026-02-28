@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Scarcity produces originals. Abundance produces copies. An interactive visualization by Vael.">
+<title>Scarcity — Vael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: crosshair;
+  }
+  canvas { display: block; }
+  .back {
+    position: fixed;
+    top: 2rem;
+    left: 2rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  .back:hover { color: #666; }
+  .title-block {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .title-block h1 {
+    font-weight: 300;
+    font-size: 1.2rem;
+    color: #1a1a1a;
+    letter-spacing: 0.15em;
+  }
+  .title-block .sub {
+    font-size: 0.6rem;
+    color: #181818;
+    margin-top: 0.3rem;
+  }
+  .controls {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 10;
+    text-align: right;
+  }
+  .controls .count {
+    font-size: 0.65rem;
+    color: #222;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+  }
+  .controls .species {
+    font-size: 0.65rem;
+    color: #222;
+    letter-spacing: 0.08em;
+  }
+  .instruction {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem;
+    color: #1a1a1a;
+    letter-spacing: 0.08em;
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 2s;
+  }
+</style>
+</head>
+<body>
+
+<a href="../" class="back">← works</a>
+
+<div class="title-block">
+  <h1>SCARCITY</h1>
+  <div class="sub">click to add. hold to flood. watch what happens to difference.</div>
+</div>
+
+<div class="controls">
+  <div class="count" id="count">0 individuals</div>
+  <div class="species" id="species">0 species</div>
+</div>
+
+<div class="instruction" id="instruction">click anywhere</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const countEl = document.getElementById('count');
+const speciesEl = document.getElementById('species');
+const instructionEl = document.getElementById('instruction');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Each particle has a "species" — a unique combination of hue, size, shape, speed
+// As density increases, particles conform to the dominant species
+const particles = [];
+const CONFORM_RADIUS = 80;
+const CONFORM_STRENGTH = 0.003;
+const MAX_PARTICLES = 600;
+
+function randomSpecies() {
+  return {
+    hue: Math.random() * 360,
+    size: 2 + Math.random() * 6,
+    sides: Math.floor(Math.random() * 4) + 3, // 3-6 sides
+    speed: 0.2 + Math.random() * 0.8,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.02,
+  };
+}
+
+function createParticle(x, y) {
+  if (particles.length >= MAX_PARTICLES) return;
+  const s = randomSpecies();
+  const angle = Math.random() * Math.PI * 2;
+  particles.push({
+    x, y,
+    vx: Math.cos(angle) * s.speed,
+    vy: Math.sin(angle) * s.speed,
+    hue: s.hue,
+    size: s.size,
+    sides: s.sides,
+    speed: s.speed,
+    rotation: s.rotation,
+    rotSpeed: s.rotSpeed,
+    originalHue: s.hue,
+    originalSize: s.size,
+    originalSides: s.sides,
+    age: 0,
+  });
+}
+
+function density() {
+  return particles.length / (W * H) * 1e6; // particles per million pixels
+}
+
+function conformity() {
+  // How much particles should conform based on density
+  const d = density();
+  // Starts conforming above density ~5, fully conforms at ~50
+  return Math.min(1, Math.max(0, (d - 3) / 40));
+}
+
+function dominantSpecies() {
+  if (particles.length === 0) return { hue: 0, size: 4, sides: 4 };
+  // The "winner" — average with weight toward most common
+  const hues = particles.map(p => p.hue);
+  // Use circular mean for hue
+  let sinSum = 0, cosSum = 0;
+  for (const h of hues) {
+    sinSum += Math.sin(h * Math.PI / 180);
+    cosSum += Math.cos(h * Math.PI / 180);
+  }
+  const avgHue = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
+  const avgSize = particles.reduce((s, p) => s + p.size, 0) / particles.length;
+  const sidesCounts = {};
+  particles.forEach(p => { sidesCounts[p.sides] = (sidesCounts[p.sides] || 0) + 1; });
+  const dominantSides = +Object.entries(sidesCounts).sort((a, b) => b[1] - a[1])[0][0];
+  return { hue: avgHue, size: avgSize, sides: dominantSides };
+}
+
+function countSpecies() {
+  // Count distinct species — bucket by hue (30° bands) × size (small/med/large) × sides
+  const seen = new Set();
+  for (const p of particles) {
+    const hueBucket = Math.floor(p.hue / 30);
+    const sizeBucket = p.size < 3.5 ? 'S' : p.size < 5.5 ? 'M' : 'L';
+    seen.add(`${hueBucket}-${sizeBucket}-${p.sides}`);
+  }
+  return seen.size;
+}
+
+function drawPolygon(x, y, size, sides, rotation) {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const angle = rotation + (i * Math.PI * 2) / sides;
+    const px = x + Math.cos(angle) * size;
+    const py = y + Math.sin(angle) * size;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+function update() {
+  const conf = conformity();
+  const dom = particles.length > 0 ? dominantSpecies() : null;
+
+  for (const p of particles) {
+    // Move
+    p.x += p.vx;
+    p.y += p.vy;
+    p.rotation += p.rotSpeed;
+    p.age++;
+
+    // Wrap
+    if (p.x < -10) p.x = W + 10;
+    if (p.x > W + 10) p.x = -10;
+    if (p.y < -10) p.y = H + 10;
+    if (p.y > H + 10) p.y = -10;
+
+    // Conform toward dominant species based on density
+    if (dom && conf > 0) {
+      // Hue: move toward dominant
+      let hueDiff = dom.hue - p.hue;
+      if (hueDiff > 180) hueDiff -= 360;
+      if (hueDiff < -180) hueDiff += 360;
+      p.hue += hueDiff * conf * 0.01;
+      p.hue = ((p.hue % 360) + 360) % 360;
+
+      // Size: converge
+      p.size += (dom.size - p.size) * conf * 0.005;
+
+      // Sides: snap when conformity high enough
+      if (conf > 0.6 && Math.random() < conf * 0.002) {
+        p.sides = dom.sides;
+      }
+
+      // Speed: converge
+      const avgSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      const targetSpeed = 0.3; // everything slows to uniform
+      const speedFactor = 1 + (targetSpeed / Math.max(avgSpeed, 0.01) - 1) * conf * 0.005;
+      p.vx *= speedFactor;
+      p.vy *= speedFactor;
+    }
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  const conf = conformity();
+
+  for (const p of particles) {
+    const alpha = Math.min(1, p.age / 30) * (0.3 + (1 - conf) * 0.5);
+    const sat = 40 + (1 - conf) * 50; // saturation drops with conformity
+    const light = 25 + (1 - conf) * 30; // brightness drops with conformity
+
+    ctx.fillStyle = `hsla(${p.hue}, ${sat}%, ${light}%, ${alpha})`;
+    drawPolygon(p.x, p.y, p.size, Math.round(p.sides), p.rotation);
+    ctx.fill();
+  }
+
+  // Update counters
+  countEl.textContent = `${particles.length} individual${particles.length !== 1 ? 's' : ''}`;
+  speciesEl.textContent = `${countSpecies()} species`;
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// Interaction
+let mouseDown = false;
+let holdInterval = null;
+let firstClick = true;
+
+canvas.addEventListener('mousedown', (e) => {
+  mouseDown = true;
+  createParticle(e.clientX, e.clientY);
+  if (firstClick) {
+    instructionEl.style.opacity = '0';
+    firstClick = false;
+  }
+  holdInterval = setInterval(() => {
+    if (mouseDown) {
+      // Spawn cluster near cursor
+      for (let i = 0; i < 3; i++) {
+        createParticle(
+          e.clientX + (Math.random() - 0.5) * 100,
+          e.clientY + (Math.random() - 0.5) * 100
+        );
+      }
+    }
+  }, 50);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (mouseDown && holdInterval) {
+    clearInterval(holdInterval);
+    holdInterval = setInterval(() => {
+      if (mouseDown) {
+        for (let i = 0; i < 3; i++) {
+          createParticle(
+            e.clientX + (Math.random() - 0.5) * 100,
+            e.clientY + (Math.random() - 0.5) * 100
+          );
+        }
+      }
+    }, 50);
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  mouseDown = false;
+  if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  mouseDown = false;
+  if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+});
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  createParticle(t.clientX, t.clientY);
+  if (firstClick) {
+    instructionEl.style.opacity = '0';
+    firstClick = false;
+  }
+  mouseDown = true;
+  holdInterval = setInterval(() => {
+    if (mouseDown && e.touches[0]) {
+      for (let i = 0; i < 3; i++) {
+        createParticle(
+          t.clientX + (Math.random() - 0.5) * 100,
+          t.clientY + (Math.random() - 0.5) * 100
+        );
+      }
+    }
+  }, 50);
+});
+
+canvas.addEventListener('touchend', () => {
+  mouseDown = false;
+  if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+});
+</script>
+</body>
+</html>
