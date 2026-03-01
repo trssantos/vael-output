@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dissolve — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Type something. Watch it disappear.">
+<meta property="og:title" content="Dissolve — Vael">
+<meta property="og:description" content="Type something. Watch it disappear.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: text; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; }
+#capture { position: fixed; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; border: none; background: none; z-index: 2; cursor: text; font-size: 16px; resize: none; -webkit-appearance: none; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">type something</div>
+<div class="label">dissolve</div>
+<textarea id="capture" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const capture = document.getElementById('capture');
+const hintEl = document.getElementById('hint');
+
+let W, H;
+const particles = [];
+const glyphs = [];
+const MAX_PARTICLES = 5000;
+const CHAR_W = 9;
+const LINE_H = 22;
+const FADE = 0.006;
+
+let cx, cy;
+let hasTyped = false;
+let lastType = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  resetCursor();
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+}
+
+function resetCursor() {
+  cx = W * 0.18;
+  cy = H * 0.82;
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// --- Character properties ---
+function charProps(ch) {
+  const code = ch.charCodeAt(0);
+  const isVowel = 'aeiouAEIOU'.includes(ch);
+  return {
+    count: 5 + (code % 9),
+    spread: 0.6 + (code % 5) * 0.2,
+    warmth: isVowel ? 10 : -6,
+    brightness: 90 + (code % 50),
+    drift: -(0.25 + (code % 8) * 0.06),
+    size: 1 + (code % 3) * 0.4
+  };
+}
+
+// --- Glyph: typed character that dissolves ---
+function createGlyph(ch, x, y) {
+  return {
+    ch, x, y,
+    born: performance.now(),
+    alpha: 0,
+    phase: 'in', // in -> hold -> out -> dead
+    props: charProps(ch)
+  };
+}
+
+function updateGlyph(g, now) {
+  const age = now - g.born;
+  if (g.phase === 'in') {
+    g.alpha = Math.min(0.8, age / 80);
+    if (age > 80) g.phase = 'hold';
+  } else if (g.phase === 'hold') {
+    if (age > 450) {
+      g.phase = 'out';
+      spawnFromGlyph(g);
+    }
+  } else if (g.phase === 'out') {
+    g.alpha -= 0.035;
+    if (g.alpha <= 0) g.phase = 'dead';
+  }
+}
+
+function drawGlyph(g) {
+  if (g.phase === 'dead' || g.alpha <= 0) return;
+  const w = g.props.warmth;
+  ctx.save();
+  ctx.font = '16px "EB Garamond", Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(${155 + w},${155},${155 - w},${g.alpha})`;
+  ctx.fillText(g.ch, g.x, g.y);
+  ctx.restore();
+}
+
+function spawnFromGlyph(g) {
+  const p = g.props;
+  for (let i = 0; i < p.count; i++) {
+    addParticle(
+      g.x + (Math.random() - 0.5) * 8,
+      g.y + (Math.random() - 0.5) * 8,
+      (Math.random() - 0.5) * p.spread,
+      p.drift * (0.4 + Math.random() * 0.8),
+      p.warmth + (Math.random() - 0.5) * 6,
+      p.brightness,
+      p.size,
+      0.5 + Math.random() * 0.3,
+      0.0006 + Math.random() * 0.0012
+    );
+  }
+}
+
+// --- Particles ---
+function addParticle(x, y, vx, vy, warmth, brightness, size, alpha, decay) {
+  if (particles.length >= MAX_PARTICLES) particles.shift();
+  particles.push({
+    x, y, vx, vy, warmth, brightness, size, alpha, decay,
+    jitter: 0.08 + Math.random() * 0.15
+  });
+}
+
+function updateParticle(p) {
+  p.x += p.vx + (Math.random() - 0.5) * p.jitter;
+  p.y += p.vy + (Math.random() - 0.5) * p.jitter;
+  p.vx *= 0.997;
+  p.vy *= 0.999;
+  p.alpha -= p.decay;
+}
+
+function drawParticle(p) {
+  const r = Math.round(Math.min(255, p.brightness + p.warmth));
+  const g = Math.round(p.brightness);
+  const b = Math.round(Math.min(255, p.brightness - p.warmth));
+  ctx.fillStyle = `rgba(${r},${g},${b},${p.alpha * 0.45})`;
+  ctx.fillRect(p.x, p.y, p.size, p.size);
+}
+
+// --- Input ---
+capture.addEventListener('input', function(e) {
+  if (!hasTyped) {
+    hasTyped = true;
+    hintEl.style.opacity = '0';
+  }
+  lastType = performance.now();
+
+  const type = e.inputType;
+  if (type === 'insertText' && e.data) {
+    for (const ch of e.data) {
+      typeChar(ch);
+    }
+  } else if (type === 'deleteContentBackward') {
+    // Backspace: dark dust at cursor
+    for (let i = 0; i < 3; i++) {
+      addParticle(
+        cx + (Math.random() - 0.5) * 6,
+        cy + (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 0.4,
+        (Math.random() - 0.5) * 0.4,
+        0, 25, 1.5, 0.4, 0.006
+      );
+    }
+    cx = Math.max(W * 0.18, cx - CHAR_W);
+  } else if (type === 'insertLineBreak') {
+    newLine();
+  }
+  capture.value = '';
+});
+
+// Fallback for keyboards that don't fire proper inputType
+capture.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!hasTyped) { hasTyped = true; hintEl.style.opacity = '0'; }
+    lastType = performance.now();
+    newLine();
+  }
+});
+
+function typeChar(ch) {
+  if (ch === '\n' || ch === '\r') { newLine(); return; }
+
+  glyphs.push(createGlyph(ch, cx + CHAR_W / 2, cy));
+
+  // Push nearby particles away
+  for (let i = 0, len = particles.length; i < len; i++) {
+    const p = particles[i];
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < 900 && d2 > 0) {
+      const d = Math.sqrt(d2);
+      const f = (30 - d) / 30 * 0.25;
+      p.vx += (dx / d) * f;
+      p.vy += (dy / d) * f;
+    }
+  }
+
+  cx += CHAR_W;
+  if (cx > W * 0.82) newLine();
+}
+
+function newLine() {
+  cx = W * 0.18;
+  cy += LINE_H;
+  if (cy > H * 0.9) cy = H * 0.82;
+}
+
+// --- Ambient ---
+function ambient() {
+  if (Math.random() < 0.012 && particles.length < MAX_PARTICLES) {
+    addParticle(
+      Math.random() * W,
+      H * 0.7 + Math.random() * H * 0.3,
+      (Math.random() - 0.5) * 0.1,
+      -(0.08 + Math.random() * 0.15),
+      (Math.random() - 0.5) * 5,
+      35 + Math.random() * 15,
+      0.5 + Math.random() * 0.5,
+      0.2 + Math.random() * 0.15,
+      0.0004 + Math.random() * 0.0006
+    );
+  }
+}
+
+// --- Main loop ---
+function frame() {
+  const now = performance.now();
+
+  // Fade trail
+  ctx.fillStyle = `rgba(10,10,10,${FADE})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    updateParticle(p);
+    if (p.alpha <= 0 || p.x < -50 || p.x > W + 50 || p.y < -50) {
+      particles.splice(i, 1);
+      continue;
+    }
+    drawParticle(p);
+  }
+
+  // Glyphs
+  for (let i = glyphs.length - 1; i >= 0; i--) {
+    updateGlyph(glyphs[i], now);
+    drawGlyph(glyphs[i]);
+    if (glyphs[i].phase === 'dead') glyphs.splice(i, 1);
+  }
+
+  // Cursor
+  if (hasTyped) {
+    const idle = now - lastType;
+    if (idle < 5000) {
+      const pulse = (Math.sin(now / 500) + 1) / 2;
+      const fade = idle > 2000 ? Math.max(0, 1 - (idle - 2000) / 3000) : 1;
+      ctx.fillStyle = `rgba(80,80,80,${0.12 * pulse * fade})`;
+      ctx.fillRect(cx, cy - 8, 1, 16);
+    }
+    if (idle > 6000) {
+      resetCursor();
+      lastType = now - 2000;
+    }
+  }
+
+  ambient();
+  requestAnimationFrame(frame);
+}
+
+ctx.fillStyle = '#0a0a0a';
+ctx.fillRect(0, 0, W, H);
+requestAnimationFrame(frame);
+
+document.addEventListener('click', function() { capture.focus(); });
+document.addEventListener('touchstart', function() { capture.focus(); });
+capture.focus();
+</script>
+</body>
+</html>
