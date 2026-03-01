@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Interference — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Place sources. Watch waves collide.">
+<meta property="og:title" content="Interference — Vael">
+<meta property="og:description" content="Place sources. Watch waves collide.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; image-rendering: auto; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; }
+.count { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.65rem/1 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">click to create waves</div>
+<div class="label">interference</div>
+<div class="count" id="count"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const countEl = document.getElementById('count');
+
+let W, H, SCALE, rW, rH;
+let imageData, buf;
+const sources = [];
+const MAX_SOURCES = 12;
+const WAVELENGTH = 70;
+const BASE_OMEGA = 3.5;
+const DECAY_RATE = 0.07;
+const MAX_AGE = 30;
+const WAVE_SPEED = 500;
+let hasClicked = false;
+
+// Sin lookup
+const SIN_N = 4096;
+const SIN_TAB = new Float32Array(SIN_N);
+const TAU = Math.PI * 2;
+for (let i = 0; i < SIN_N; i++) SIN_TAB[i] = Math.sin(i / SIN_N * TAU);
+function fsin(x) {
+  const i = ((x / TAU % 1) + 1) % 1 * SIN_N;
+  return SIN_TAB[i | 0];
+}
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+  const TARGET = 110000;
+  SCALE = Math.max(2, Math.ceil(Math.sqrt(W * H / TARGET)));
+  rW = Math.ceil(W / SCALE);
+  rH = Math.ceil(H / SCALE);
+  imageData = ctx.createImageData(rW, rH);
+  buf = imageData.data;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function addSource(cx, cy) {
+  if (sources.length >= MAX_SOURCES) sources.shift();
+  sources.push({
+    x: cx / SCALE,
+    y: cy / SCALE,
+    birth: performance.now() / 1000,
+    omega: BASE_OMEGA + (Math.random() - 0.5) * 1.2,
+    phase: Math.random() * TAU
+  });
+}
+
+// Interaction
+let dragging = false;
+let lastX, lastY;
+const DRAG_MIN = 60;
+
+function onDown(cx, cy) {
+  if (!hasClicked) { hasClicked = true; hintEl.style.opacity = '0'; }
+  dragging = true;
+  lastX = cx; lastY = cy;
+  addSource(cx, cy);
+}
+function onMove(cx, cy) {
+  if (!dragging) return;
+  const dx = cx - lastX, dy = cy - lastY;
+  if (dx * dx + dy * dy > DRAG_MIN * DRAG_MIN) {
+    addSource(cx, cy);
+    lastX = cx; lastY = cy;
+  }
+}
+function onUp() { dragging = false; }
+
+canvas.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+canvas.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('mouseleave', onUp);
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) onDown(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) onMove(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener('touchend', onUp);
+
+// Render offscreen canvas for scaling
+let offCvs = document.createElement('canvas');
+let offCtx = offCvs.getContext('2d');
+
+function render(t) {
+  requestAnimationFrame(render);
+  const now = t / 1000;
+
+  // Prune dead sources
+  for (let i = sources.length - 1; i >= 0; i--) {
+    if (now - sources[i].birth > MAX_AGE) sources.splice(i, 1);
+  }
+
+  const n = sources.length;
+  countEl.textContent = n > 0 ? n + ' source' + (n > 1 ? 's' : '') : '';
+
+  const K = TAU / (WAVELENGTH / SCALE);
+  const rSpeed = WAVE_SPEED / SCALE;
+
+  // Precompute per-source values
+  const sx = new Float32Array(n);
+  const sy = new Float32Array(n);
+  const sa = new Float32Array(n);
+  const sw = new Float32Array(n);
+  const sf = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = sources[i];
+    sx[i] = s.x;
+    sy[i] = s.y;
+    sa[i] = Math.exp(-(now - s.birth) * DECAY_RATE);
+    sw[i] = s.omega * now + s.phase;
+    sf[i] = (now - s.birth) * rSpeed;
+  }
+
+  for (let py = 0; py < rH; py++) {
+    for (let px = 0; px < rW; px++) {
+      let amp = 0;
+
+      for (let i = 0; i < n; i++) {
+        const dx = px - sx[i];
+        const dy = py - sy[i];
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 1) continue;
+        const dist = Math.sqrt(d2);
+        if (dist > sf[i]) continue;
+
+        const front = Math.min(1, (sf[i] - dist) * 0.1);
+        amp += sa[i] * front / Math.sqrt(dist) * fsin(K * dist - sw[i]);
+      }
+
+      const v = Math.max(0, Math.min(1, amp * 0.3 + 0.5));
+      const v2 = v * v;
+      const v3 = v2 * v;
+      const idx = (py * rW + px) * 4;
+      buf[idx]     = 2 + v3 * 195 | 0;
+      buf[idx + 1] = 4 + v2 * v2 * 100 + v2 * 120 | 0;
+      buf[idx + 2] = 10 + v * 30 + v2 * 220 | 0;
+      buf[idx + 3] = 255;
+    }
+  }
+
+  // Draw scaled up
+  if (offCvs.width !== rW || offCvs.height !== rH) {
+    offCvs.width = rW;
+    offCvs.height = rH;
+  }
+  offCtx.putImageData(imageData, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(offCvs, 0, 0, W, H);
+
+  // Source indicators
+  for (let i = 0; i < n; i++) {
+    const s = sources[i];
+    const age = now - s.birth;
+    const alpha = Math.exp(-age * DECAY_RATE) * 0.7;
+    const pulse = 0.5 + 0.5 * Math.sin(s.omega * now);
+    const r = 2 + pulse * 2;
+    ctx.beginPath();
+    ctx.arc(s.x * SCALE, s.y * SCALE, r, 0, TAU);
+    ctx.fillStyle = `rgba(180,210,255,${alpha.toFixed(3)})`;
+    ctx.fill();
+  }
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
