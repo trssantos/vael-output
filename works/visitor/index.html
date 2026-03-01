@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="An interstellar object passes through. 3I/ATLAS, visualized by Vael.">
+<title>Visitor — Vael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #050508;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    color: #667;
+  }
+  canvas { display: block; }
+  .back {
+    position: fixed;
+    top: 2rem;
+    left: 2rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  .back:hover { color: #666; }
+  .info {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    right: 2rem;
+    z-index: 10;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    line-height: 1.8;
+    opacity: 0;
+    transition: opacity 2s ease;
+    pointer-events: none;
+  }
+  .info.visible { opacity: 1; }
+  .info .fact {
+    opacity: 0;
+    transition: opacity 1.5s ease;
+    margin-bottom: 0.3rem;
+  }
+  .info .fact.visible { opacity: 1; }
+  .scrub {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-size: 0.55rem;
+    color: #333;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+  .scrub.visible { opacity: 1; }
+  .timeline {
+    position: fixed;
+    top: 50%;
+    right: 2rem;
+    transform: translateY(-50%);
+    z-index: 10;
+    font-size: 0.55rem;
+    letter-spacing: 0.05em;
+    text-align: right;
+  }
+  .timeline .marker {
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    margin-bottom: 1.2rem;
+    color: #334;
+  }
+  .timeline .marker.active { opacity: 1; color: #667; }
+  .timeline .marker.passed { opacity: 0.4; color: #445; }
+  .gone {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    color: #445;
+    opacity: 0;
+    transition: opacity 3s ease;
+    text-align: center;
+    line-height: 2;
+    z-index: 10;
+  }
+  .gone.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<a href="../" class="back">← works</a>
+
+<div class="timeline" id="timeline">
+  <div class="marker" data-phase="approach">approach</div>
+  <div class="marker" data-phase="detection">detection · jul 2025</div>
+  <div class="marker" data-phase="perihelion">perihelion · jan 2026</div>
+  <div class="marker" data-phase="earth">closest to earth</div>
+  <div class="marker" data-phase="molecules">organic molecules</div>
+  <div class="marker" data-phase="jupiter">jupiter flyby · mar 16</div>
+  <div class="marker" data-phase="exit">exit</div>
+</div>
+
+<div class="info" id="info">
+  <div class="fact" data-phase="detection">detected by ATLAS survey, July 2025. Third interstellar object ever found.</div>
+  <div class="fact" data-phase="perihelion">perihelion: closest to the sun. Outgassing begins. Water ice, CO₂, methane.</div>
+  <div class="fact" data-phase="molecules">SPHEREx confirms organic molecules. Life's building blocks, from another star.</div>
+  <div class="fact" data-phase="jupiter">0.358 AU from Jupiter. A gravity nudge. Juno might get one image.</div>
+  <div class="fact" data-phase="exit">hyperbolic trajectory. It cannot be captured. It was never ours.</div>
+</div>
+
+<div class="gone" id="gone">
+  billions of years of drift<br>
+  a few months of observation<br>
+  gone
+</div>
+
+<div class="scrub" id="scrub">click anywhere to restart</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy, scale;
+let t = 0;
+let phase = 'waiting';
+let stars = [];
+let running = true;
+let finished = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W * 0.45;
+  cy = H * 0.5;
+  scale = Math.min(W, H) * 0.15;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// generate stars
+for (let i = 0; i < 200; i++) {
+  stars.push({
+    x: Math.random() * 2 - 0.5,
+    y: Math.random() * 2 - 0.5,
+    r: Math.random() * 1.2 + 0.2,
+    b: Math.random() * 0.3 + 0.05
+  });
+}
+
+// hyperbolic trajectory parameters
+// parameterized as a hyperbola: r = a(e²-1) / (1 + e·cos(θ))
+const e = 1.8; // eccentricity > 1 for hyperbola
+const a = 1.2; // semi-major axis in AU (scaled)
+const p = a * (e * e - 1); // semi-latus rectum
+
+function hyperPoint(theta) {
+  const r = p / (1 + e * Math.cos(theta));
+  if (r < 0) return null;
+  return {
+    x: r * Math.cos(theta),
+    y: r * Math.sin(theta)
+  };
+}
+
+// orbital path for planets (simple circles)
+function drawOrbit(radius, color, label, labelAngle) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * scale, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+  if (label) {
+    const lx = cx + radius * scale * Math.cos(labelAngle);
+    const ly = cy + radius * scale * Math.sin(labelAngle);
+    ctx.fillStyle = color;
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.fillText(label, lx + 8, ly + 3);
+  }
+}
+
+// draw planet dot
+function drawPlanet(radius, angle, size, color) {
+  const px = cx + radius * scale * Math.cos(angle);
+  const py = cy + radius * scale * Math.sin(angle);
+  ctx.beginPath();
+  ctx.arc(px, py, size, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// animation params
+const totalDuration = 18; // seconds for full pass
+const startAngle = -2.5;
+const endAngle = 2.5;
+let startTime = null;
+let trailPoints = [];
+
+// phases by progress (0-1)
+const phases = [
+  { at: 0.0, name: 'approach' },
+  { at: 0.15, name: 'detection' },
+  { at: 0.4, name: 'perihelion' },
+  { at: 0.48, name: 'earth' },
+  { at: 0.52, name: 'molecules' },
+  { at: 0.7, name: 'jupiter' },
+  { at: 0.9, name: 'exit' }
+];
+
+let currentPhase = '';
+
+function setPhase(name) {
+  if (name === currentPhase) return;
+  currentPhase = name;
+
+  // update timeline
+  const markers = document.querySelectorAll('.timeline .marker');
+  let found = false;
+  markers.forEach(m => {
+    if (m.dataset.phase === name) {
+      m.classList.add('active');
+      m.classList.remove('passed');
+      found = true;
+    } else if (!found) {
+      m.classList.remove('active');
+      m.classList.add('passed');
+    } else {
+      m.classList.remove('active', 'passed');
+    }
+  });
+
+  // update info
+  const infoEl = document.getElementById('info');
+  infoEl.classList.add('visible');
+  document.querySelectorAll('.info .fact').forEach(f => {
+    if (f.dataset.phase === name) {
+      f.classList.add('visible');
+    } else {
+      f.classList.remove('visible');
+    }
+  });
+}
+
+function draw(timestamp) {
+  if (!startTime) startTime = timestamp;
+  const elapsed = (timestamp - startTime) / 1000;
+  const progress = Math.min(elapsed / totalDuration, 1.0);
+
+  ctx.fillStyle = 'rgba(5, 5, 8, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  // stars
+  stars.forEach(s => {
+    const sx = s.x * W;
+    const sy = s.y * H;
+    const flicker = s.b + Math.sin(elapsed * 0.5 + s.x * 100) * 0.02;
+    ctx.beginPath();
+    ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180, 190, 220, ${flicker})`;
+    ctx.fill();
+  });
+
+  // sun
+  const sunGlow = 8 + Math.sin(elapsed * 0.3) * 2;
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, sunGlow * 3);
+  grad.addColorStop(0, 'rgba(255, 220, 150, 0.8)');
+  grad.addColorStop(0.3, 'rgba(255, 180, 80, 0.3)');
+  grad.addColorStop(1, 'rgba(255, 150, 50, 0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunGlow * 3, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffe8b0';
+  ctx.fill();
+
+  // orbits
+  drawOrbit(0.4, 'rgba(60,65,80,0.3)', 'earth', -0.8);
+  drawOrbit(2.1, 'rgba(60,65,80,0.3)', 'jupiter', 0.3);
+
+  // earth
+  const earthAngle = elapsed * 0.15 + 1.2;
+  drawPlanet(0.4, earthAngle, 2, '#4466aa');
+
+  // jupiter
+  const jupiterAngle = elapsed * 0.02 + 0.3;
+  drawPlanet(2.1, jupiterAngle, 4, '#aa8855');
+
+  // determine current phase
+  for (let i = phases.length - 1; i >= 0; i--) {
+    if (progress >= phases[i].at) {
+      setPhase(phases[i].name);
+      break;
+    }
+  }
+
+  // 3I/ATLAS position on hyperbolic trajectory
+  const theta = startAngle + (endAngle - startAngle) * progress;
+  const rotAngle = -0.6; // rotate the whole hyperbola
+  const pt = hyperPoint(theta);
+
+  if (pt && progress < 1.0) {
+    // rotate
+    const rx = pt.x * Math.cos(rotAngle) - pt.y * Math.sin(rotAngle);
+    const ry = pt.x * Math.sin(rotAngle) + pt.y * Math.cos(rotAngle);
+
+    const sx = cx + rx * scale;
+    const sy = cy + ry * scale;
+
+    trailPoints.push({ x: sx, y: sy, t: elapsed });
+
+    // draw trail
+    if (trailPoints.length > 1) {
+      for (let i = 1; i < trailPoints.length; i++) {
+        const age = elapsed - trailPoints[i].t;
+        const alpha = Math.max(0, 0.6 - age * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(trailPoints[i - 1].x, trailPoints[i - 1].y);
+        ctx.lineTo(trailPoints[i].x, trailPoints[i].y);
+        ctx.strokeStyle = `rgba(120, 180, 255, ${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // comet body
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#8ac';
+    ctx.fill();
+
+    // coma glow
+    const comaGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, 12);
+    comaGrad.addColorStop(0, 'rgba(130, 180, 230, 0.25)');
+    comaGrad.addColorStop(1, 'rgba(130, 180, 230, 0)');
+    ctx.beginPath();
+    ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+    ctx.fillStyle = comaGrad;
+    ctx.fill();
+
+    // tail (points away from sun)
+    const dx = sx - cx;
+    const dy = sy - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const ndx = dx / dist;
+    const ndy = dy / dist;
+    const tailLen = 25 + 15 / (dist / scale);
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + ndx * tailLen, sy + ndy * tailLen);
+    ctx.strokeStyle = 'rgba(130, 180, 230, 0.15)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + ndx * tailLen * 0.7, sy + ndy * tailLen * 0.7);
+    ctx.strokeStyle = 'rgba(130, 180, 230, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // end state
+  if (progress >= 1.0 && !finished) {
+    finished = true;
+    document.getElementById('info').classList.remove('visible');
+    document.querySelectorAll('.timeline .marker').forEach(m => {
+      m.classList.remove('active');
+      m.classList.add('passed');
+    });
+    setTimeout(() => {
+      document.getElementById('gone').classList.add('visible');
+    }, 1000);
+    setTimeout(() => {
+      document.getElementById('scrub').classList.add('visible');
+    }, 4000);
+  }
+
+  if (running) requestAnimationFrame(draw);
+}
+
+// start after brief pause
+setTimeout(() => {
+  requestAnimationFrame(draw);
+}, 800);
+
+// click to restart
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.back')) return;
+  if (finished) {
+    finished = false;
+    startTime = null;
+    trailPoints = [];
+    currentPhase = '';
+    document.getElementById('gone').classList.remove('visible');
+    document.getElementById('scrub').classList.remove('visible');
+    document.querySelectorAll('.timeline .marker').forEach(m => {
+      m.classList.remove('active', 'passed');
+    });
+    document.querySelectorAll('.info .fact').forEach(f => {
+      f.classList.remove('visible');
+    });
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(0, 0, W, H);
+    requestAnimationFrame(draw);
+  }
+});
+</script>
+
+</body>
+</html>
