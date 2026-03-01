@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="When does noise become signal? A quorum sensing simulation. By Vael.">
+<title>Quorum — Vael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #050510;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+  }
+  canvas { display: block; }
+  .back {
+    position: fixed;
+    top: 2rem;
+    left: 2rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  .back:hover { color: #666; }
+  .controls {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+    z-index: 10;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .control-group label {
+    color: #445;
+    text-transform: uppercase;
+  }
+  .control-group .value {
+    color: #556;
+    font-size: 0.55rem;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 2px;
+    background: #1a1a2a;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #556;
+    cursor: pointer;
+  }
+  .info {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    text-align: right;
+    font-size: 0.6rem;
+    color: #334;
+    z-index: 10;
+    line-height: 1.8;
+  }
+  .info .lit { color: #4a8; }
+  .title-block {
+    position: fixed;
+    top: 50%;
+    left: 2rem;
+    transform: translateY(-50%);
+    z-index: 10;
+    pointer-events: none;
+  }
+  .title-block h1 {
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: #445;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .title-block p {
+    font-size: 0.55rem;
+    color: #2a2a3a;
+    margin-top: 0.5rem;
+    max-width: 160px;
+    line-height: 1.5;
+  }
+  .hint {
+    position: fixed;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.5rem;
+    color: #2a2a3a;
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 2s;
+  }
+</style>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<a href="/works/" class="back">← works</a>
+
+<div class="title-block">
+  <h1>Quorum</h1>
+  <p>Individual units emit signal at random. Above a threshold, they switch on. Sometimes noise is what ignites the collective.</p>
+</div>
+
+<div class="info" id="info">
+  units: 0<br>
+  active: <span class="lit">0%</span><br>
+  avg signal: 0.00
+</div>
+
+<div class="hint" id="hint">set density low, then raise noise slowly</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Density</label>
+    <input type="range" id="densitySlider" min="5" max="80" value="25">
+    <span class="value" id="densityVal">25</span>
+  </div>
+  <div class="control-group">
+    <label>Noise</label>
+    <input type="range" id="noiseSlider" min="0" max="100" value="5">
+    <span class="value" id="noiseVal">0.005</span>
+  </div>
+  <div class="control-group">
+    <label>Threshold</label>
+    <input type="range" id="thresholdSlider" min="10" max="90" value="50">
+    <span class="value" id="thresholdVal">0.50</span>
+  </div>
+  <div class="control-group">
+    <label id="resetBtn" style="cursor:pointer;color:#668;">Reset</label>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+const hint = document.getElementById('hint');
+const densitySlider = document.getElementById('densitySlider');
+const noiseSlider = document.getElementById('noiseSlider');
+const thresholdSlider = document.getElementById('thresholdSlider');
+const densityVal = document.getElementById('densityVal');
+const noiseVal = document.getElementById('noiseVal');
+const thresholdVal = document.getElementById('thresholdVal');
+const resetBtn = document.getElementById('resetBtn');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// --- Simulation parameters ---
+const BASE_EMISSION = 0.005;
+const ACTIVE_EMISSION = 0.5;
+const DIFFUSION_RANGE = 60; // pixels
+const HYSTERESIS = 0.7;
+
+// --- State ---
+let units = [];
+let influence = [];  // precomputed influence matrix
+let needsRebuild = true;
+let prevDensity = -1;
+let hintTimer = null;
+
+function exponentialRandom(lambda) {
+  return -Math.log(1 - Math.random()) / lambda;
+}
+
+function buildUnits() {
+  const count = parseInt(densitySlider.value);
+  const margin = 80;
+  units = [];
+  for (let i = 0; i < count; i++) {
+    units.push({
+      x: margin + Math.random() * (W - 2 * margin),
+      y: margin + Math.random() * (H - 2 * margin),
+      on: false,
+      concentration: 0,
+      glow: 0, // visual smoothing
+    });
+  }
+
+  // Precompute influence matrix (gaussian kernel)
+  const n = units.length;
+  influence = new Float32Array(n * n);
+  const sigma2 = 2 * DIFFUSION_RANGE * DIFFUSION_RANGE;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) { influence[i * n + j] = 0; continue; }
+      const dx = units[i].x - units[j].x;
+      const dy = units[i].y - units[j].y;
+      influence[i * n + j] = Math.exp(-(dx * dx + dy * dy) / sigma2);
+    }
+  }
+  needsRebuild = false;
+}
+
+function getThreshold() {
+  return thresholdSlider.value / 100;
+}
+
+function getNoise() {
+  return (noiseSlider.value / 100) * 0.15;
+}
+
+function simulate() {
+  const n = units.length;
+  if (n === 0) return;
+
+  const threshold = getThreshold();
+  const noise = getNoise();
+
+  // Compute emissions
+  const emissions = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    emissions[i] = units[i].on ? ACTIVE_EMISSION : BASE_EMISSION;
+    emissions[i] += exponentialRandom(1 / (noise + 0.0001));
+  }
+
+  // Compute concentrations
+  for (let i = 0; i < n; i++) {
+    let c = 0;
+    for (let j = 0; j < n; j++) {
+      c += influence[i * n + j] * emissions[j];
+    }
+    c *= 0.95; // decay
+    units[i].concentration = c;
+
+    // Threshold with hysteresis
+    if (c > threshold) {
+      units[i].on = true;
+    } else if (c < threshold * HYSTERESIS) {
+      units[i].on = false;
+    }
+  }
+}
+
+function draw() {
+  // Dark blue-black background
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W, H);
+
+  const n = units.length;
+  if (n === 0) return;
+
+  // Draw signal halos first (additive-looking)
+  for (let i = 0; i < n; i++) {
+    const u = units[i];
+
+    // Smooth glow transition
+    const target = u.on ? 1 : 0;
+    u.glow += (target - u.glow) * 0.08;
+
+    if (u.glow > 0.05) {
+      // Outer halo
+      const r = DIFFUSION_RANGE * 0.6 * u.glow;
+      const grad = ctx.createRadialGradient(u.x, u.y, 0, u.x, u.y, r);
+      grad.addColorStop(0, `rgba(60, 220, 160, ${0.06 * u.glow})`);
+      grad.addColorStop(0.5, `rgba(40, 180, 140, ${0.02 * u.glow})`);
+      grad.addColorStop(1, 'rgba(20, 80, 60, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Draw units
+  for (let i = 0; i < n; i++) {
+    const u = units[i];
+
+    if (u.glow > 0.1) {
+      // Lit unit: bright teal-green core
+      ctx.fillStyle = `rgba(80, 255, 180, ${0.3 + 0.7 * u.glow})`;
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, 2.5 + u.glow * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner glow
+      ctx.fillStyle = `rgba(150, 255, 200, ${0.5 * u.glow})`;
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Dark unit: dim dot
+      ctx.fillStyle = 'rgba(40, 50, 60, 0.6)';
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Fraction bar (bottom-right corner, very subtle)
+  const fractionOn = n > 0 ? units.filter(u => u.on).length / n : 0;
+  const avgConcentration = n > 0 ? units.reduce((s, u) => s + u.concentration, 0) / n : 0;
+  const barW = 3;
+  const barH = H * 0.3;
+  const barX = W - 30;
+  const barY = H * 0.35;
+
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(barX, barY, barW, barH);
+  const litH = barH * fractionOn;
+  ctx.fillStyle = `rgba(60, 220, 160, ${0.3 + fractionOn * 0.5})`;
+  ctx.fillRect(barX, barY + barH - litH, barW, litH);
+
+  // Update info
+  info.innerHTML = `units: ${n}<br>active: <span class="lit">${(fractionOn * 100).toFixed(0)}%</span><br>avg signal: ${avgConcentration.toFixed(3)}`;
+}
+
+// --- Slider listeners ---
+densitySlider.addEventListener('input', () => {
+  densityVal.textContent = densitySlider.value;
+  needsRebuild = true;
+});
+
+noiseSlider.addEventListener('input', () => {
+  noiseVal.textContent = getNoise().toFixed(3);
+});
+
+thresholdSlider.addEventListener('input', () => {
+  thresholdVal.textContent = getThreshold().toFixed(2);
+});
+
+resetBtn.addEventListener('click', () => {
+  needsRebuild = true;
+});
+
+// Hide hint after interaction
+let hintVisible = true;
+function hideHint() {
+  if (hintVisible) {
+    hint.style.opacity = '0';
+    hintVisible = false;
+  }
+}
+densitySlider.addEventListener('input', hideHint);
+noiseSlider.addEventListener('input', hideHint);
+thresholdSlider.addEventListener('input', hideHint);
+
+// --- Main loop ---
+buildUnits();
+noiseVal.textContent = getNoise().toFixed(3);
+thresholdVal.textContent = getThreshold().toFixed(2);
+densityVal.textContent = densitySlider.value;
+
+let lastSim = 0;
+const SIM_INTERVAL = 80; // ms between simulation steps
+
+function loop(now) {
+  if (needsRebuild) {
+    buildUnits();
+  }
+
+  if (now - lastSim > SIM_INTERVAL) {
+    simulate();
+    lastSim = now;
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
