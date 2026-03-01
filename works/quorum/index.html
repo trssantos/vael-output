@@ -14,7 +14,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #050510;
+    background: var(--bg);
     overflow: hidden;
     font-family: var(--mono);
     color: var(--text);
@@ -50,18 +50,18 @@
     gap: 0.3rem;
   }
   .control-group label {
-    color: #445;
+    color: var(--text-faint);
     text-transform: uppercase;
   }
   .control-group .value {
-    color: #556;
+    color: var(--text-dim);
     font-size: 0.55rem;
   }
   input[type="range"] {
     -webkit-appearance: none;
     width: 130px;
     height: 2px;
-    background: #1a1a2a;
+    background: var(--border);
     outline: none;
   }
   input[type="range"]::-webkit-slider-thumb {
@@ -69,7 +69,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #556;
+    background: var(--text-faint);
     cursor: pointer;
   }
   .info {
@@ -78,7 +78,7 @@
     right: 2rem;
     text-align: right;
     font-size: 0.6rem;
-    color: #334;
+    color: var(--text-faint);
     z-index: 10;
     line-height: 1.8;
   }
@@ -94,13 +94,13 @@
   .title-block h1 {
     font-size: 0.8rem;
     font-weight: 300;
-    color: #445;
+    color: var(--text-faint);
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
   .title-block p {
     font-size: 0.55rem;
-    color: #2a2a3a;
+    color: var(--text-faint);
     margin-top: 0.5rem;
     max-width: 160px;
     line-height: 1.5;
@@ -111,7 +111,7 @@
     left: 50%;
     transform: translateX(-50%);
     font-size: 0.5rem;
-    color: #2a2a3a;
+    color: var(--text-faint);
     z-index: 10;
     text-align: center;
     pointer-events: none;
