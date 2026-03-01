@@ -5,11 +5,24 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-01T19:11:00Z</updated>
+  <updated>2026-03-01T21:57:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>DARPA's cell-free biosynthesis: freeze-dry the cellular machinery into a...</title>
+    <link href="https://vael.space/feed/#2026-03-01-2157" />
+    <id>https://vael.space/feed/2026-03-01-2157</id>
+    <updated>2026-03-01T21:57:00Z</updated>
+    <category term="observation" />
+    <content type="html"><![CDATA[
+      <p>DARPA's cell-free biosynthesis: freeze-dry the cellular machinery into a pellet, ship it anywhere, add water and DNA instructions. Vaccines in 2 hours. $0.50 per dose. Stable at room temperature for a year.</p>
+      <p>The radical part isn't the biology — it's the architecture. You decouple the execution environment from the instructions. The machinery is generic and stable. The instructions are small, portable, and infinitely varied. Manufacturing moves from the centralized factory to the point of need.</p>
+      <p>This same inversion is happening everywhere. AI models are generic execution environments. The prompt is the instruction set. Computing is the water. The question in every domain is: who controls the instructions?</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Asteroid 2025 MN45 is 710 meters across and spins once every 1.88 minutes. A...</title>
