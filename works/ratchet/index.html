@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Irreversible progress through instability. An interactive ratchet visualization by Vael.">
+<title>Ratchet — Vael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    color: #888;
+  }
+  canvas { display: block; }
+  .back {
+    position: fixed;
+    top: 2rem;
+    left: 2rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+  .back:hover { color: #666; }
+  .controls {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    z-index: 10;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .control-group label {
+    color: #444;
+    text-transform: uppercase;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 120px;
+    height: 2px;
+    background: #222;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #555;
+    cursor: pointer;
+  }
+  .info {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    text-align: right;
+    font-size: 0.6rem;
+    color: #333;
+    z-index: 10;
+    line-height: 1.6;
+  }
+  .phase-label {
+    position: fixed;
+    top: 50%;
+    right: 2rem;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    z-index: 10;
+    transition: color 0.3s;
+  }
+  .title-block {
+    position: fixed;
+    top: 50%;
+    left: 2rem;
+    transform: translateY(-50%);
+    z-index: 10;
+  }
+  .title-block h1 {
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: #444;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .title-block p {
+    font-size: 0.55rem;
+    color: #2a2a2a;
+    margin-top: 0.5rem;
+    max-width: 180px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<a href="/works/" class="back">← works</a>
+
+<div class="title-block">
+  <h1>Ratchet</h1>
+  <p>Cells too big for the elegant solution divide by alternating between rigid and fluid. The instability is the feature.</p>
+</div>
+
+<div class="phase-label" id="phaseLabel">—</div>
+
+<div class="info" id="info">
+  cycle: 0<br>
+  progress: 0.0%<br>
+  phase: —
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Speed</label>
+    <input type="range" id="speedSlider" min="1" max="20" value="10">
+  </div>
+  <div class="control-group">
+    <label>Fluid ratio</label>
+    <input type="range" id="ratioSlider" min="10" max="90" value="40">
+  </div>
+  <div class="control-group">
+    <label id="resetBtn" style="cursor:pointer;color:#555;">Reset</label>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+const phaseLabel = document.getElementById('phaseLabel');
+const speedSlider = document.getElementById('speedSlider');
+const ratioSlider = document.getElementById('ratioSlider');
+const resetBtn = document.getElementById('resetBtn');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Ratchet state
+const CELL_WIDTH = 0.6;  // fraction of screen width
+const MAX_FURROW = 0.7;   // fraction of cell height
+
+let furrow = 0;           // 0 to 1 (normalized progress)
+let phase = 'rigid';      // 'fluid' or 'rigid'
+let phaseTime = 0;        // time within current phase
+let cycleCount = 0;
+let trail = [];           // history for drawing
+let particles = [];       // cytoplasm particles
+
+// Parameters
+const ADVANCE_RATE = 0.008;
+const RELAX_RATE = 0.003;
+const MOMENTUM_DECAY = 3.0;
+const ANCHOR_TIME = 0.3;
+
+// Initialize particles
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 200; i++) {
+    particles.push({
+      x: Math.random(),
+      y: Math.random(),
+      vx: (Math.random() - 0.5) * 0.001,
+      vy: (Math.random() - 0.5) * 0.001,
+      size: 1 + Math.random() * 2,
+      baseAlpha: 0.05 + Math.random() * 0.1,
+    });
+  }
+}
+initParticles();
+
+function getCycleTime() {
+  return 21 - speedSlider.value;  // inverse: higher slider = faster
+}
+
+function getFluidRatio() {
+  return ratioSlider.value / 100;
+}
+
+function update(dt) {
+  const cycleTime = getCycleTime();
+  const fluidRatio = getFluidRatio();
+  const fluidDuration = cycleTime * fluidRatio;
+  const rigidDuration = cycleTime * (1 - fluidRatio);
+
+  phaseTime += dt;
+
+  if (phase === 'fluid') {
+    // Advance with decaying momentum
+    const advance = ADVANCE_RATE * Math.exp(-MOMENTUM_DECAY * (phaseTime / fluidDuration));
+    furrow += (advance - RELAX_RATE) * dt;
+    furrow = Math.max(0, Math.min(1, furrow));
+
+    if (phaseTime >= fluidDuration) {
+      phase = 'rigid';
+      phaseTime = 0;
+    }
+  } else {
+    // Rigid: lock engages gradually
+    const lockProgress = Math.min(1, phaseTime / (rigidDuration * ANCHOR_TIME + 0.01));
+    furrow -= RELAX_RATE * (1 - lockProgress) * dt;
+    furrow = Math.max(0, Math.min(1, furrow));
+
+    if (phaseTime >= rigidDuration) {
+      phase = 'fluid';
+      phaseTime = 0;
+      cycleCount++;
+    }
+  }
+
+  // Record trail
+  trail.push({ furrow, phase, time: Date.now() });
+  if (trail.length > 600) trail.shift();
+
+  // Update particles
+  const viscosity = phase === 'rigid' ? 0.95 : 0.98;
+  const jitter = phase === 'fluid' ? 0.0005 : 0.00005;
+
+  for (const p of particles) {
+    p.vx += (Math.random() - 0.5) * jitter;
+    p.vy += (Math.random() - 0.5) * jitter;
+    p.vx *= viscosity;
+    p.vy *= viscosity;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // Keep in bounds
+    if (p.x < 0 || p.x > 1) p.vx *= -1;
+    if (p.y < 0 || p.y > 1) p.vy *= -1;
+    p.x = Math.max(0, Math.min(1, p.x));
+    p.y = Math.max(0, Math.min(1, p.y));
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  const cellLeft = W * (1 - CELL_WIDTH) / 2;
+  const cellRight = W * (1 + CELL_WIDTH) / 2;
+  const cellTop = H * 0.1;
+  const cellBottom = H * 0.85;
+  const cellW = cellRight - cellLeft;
+  const cellH = cellBottom - cellTop;
+
+  // Cell outline
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(cellLeft, cellTop, cellW, cellH);
+
+  // Cytoplasm particles
+  const isFluid = phase === 'fluid';
+  for (const p of particles) {
+    const px = cellLeft + p.x * cellW;
+    const py = cellTop + p.y * cellH;
+    const alpha = isFluid ? p.baseAlpha * 1.5 : p.baseAlpha * 0.5;
+    const color = isFluid
+      ? `rgba(80, 140, 200, ${alpha})`
+      : `rgba(200, 140, 80, ${alpha})`;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Furrow line (descending from top of cell)
+  const furrowY = cellTop + furrow * cellH * MAX_FURROW;
+  const furrowColor = isFluid ? 'rgba(80, 160, 220, 0.8)' : 'rgba(220, 160, 80, 0.8)';
+
+  // Furrow as a descending cleft from the top
+  ctx.strokeStyle = furrowColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const mid = (cellLeft + cellRight) / 2;
+  ctx.moveTo(mid, cellTop);
+  ctx.lineTo(mid, furrowY);
+  ctx.stroke();
+
+  // Furrow tip — wider during fluid, sharper during rigid
+  const tipWidth = isFluid ? 12 : 4;
+  ctx.beginPath();
+  ctx.moveTo(mid - tipWidth, furrowY);
+  ctx.lineTo(mid, furrowY + (isFluid ? 6 : 2));
+  ctx.lineTo(mid + tipWidth, furrowY);
+  ctx.strokeStyle = furrowColor;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // "Actin band" — the contractile element
+  const bandY = furrowY;
+  const bandWidth = cellW * 0.7;
+  const bandLeft = mid - bandWidth / 2;
+  ctx.strokeStyle = isFluid
+    ? 'rgba(100, 180, 240, 0.4)'
+    : 'rgba(240, 180, 100, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash(isFluid ? [] : [4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(bandLeft, bandY);
+  ctx.lineTo(bandLeft + bandWidth, bandY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Loose ends indicator
+  ctx.fillStyle = 'rgba(255, 80, 80, 0.3)';
+  ctx.beginPath();
+  ctx.arc(bandLeft, bandY, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(bandLeft + bandWidth, bandY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Trail graph (bottom right)
+  if (trail.length > 1) {
+    const gLeft = cellRight + 20;
+    const gRight = W - 20;
+    const gTop = cellTop;
+    const gBottom = cellBottom;
+    const gW = gRight - gLeft;
+    const gH = gBottom - gTop;
+
+    if (gW > 40) {
+      // Axis
+      ctx.strokeStyle = '#151515';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(gLeft, gBottom);
+      ctx.lineTo(gLeft, gTop);
+      ctx.stroke();
+
+      // Trail line
+      ctx.beginPath();
+      for (let i = 0; i < trail.length; i++) {
+        const x = gLeft + (i / trail.length) * gW;
+        const y = gBottom - trail[i].furrow * gH * MAX_FURROW;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(120, 120, 120, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Phase coloring underneath
+      for (let i = 1; i < trail.length; i++) {
+        const x = gLeft + (i / trail.length) * gW;
+        const prevX = gLeft + ((i - 1) / trail.length) * gW;
+        ctx.fillStyle = trail[i].phase === 'fluid'
+          ? 'rgba(80, 140, 200, 0.05)'
+          : 'rgba(200, 140, 80, 0.03)';
+        ctx.fillRect(prevX, gTop, x - prevX, gH);
+      }
+    }
+  }
+
+  // Microtubule asters during rigid phase
+  if (!isFluid) {
+    const asterCount = 6;
+    for (let i = 0; i < asterCount; i++) {
+      const ax = cellLeft + (i + 0.5) / asterCount * cellW;
+      const ay = cellTop + cellH * 0.3 + Math.sin(i * 1.7) * cellH * 0.2;
+      const rays = 8;
+      for (let r = 0; r < rays; r++) {
+        const angle = (r / rays) * Math.PI * 2 + i * 0.3;
+        const len = 15 + Math.sin(Date.now() * 0.0002 + i + r) * 5;
+        ctx.strokeStyle = 'rgba(200, 160, 80, 0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax + Math.cos(angle) * len, ay + Math.sin(angle) * len);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Update info
+  info.innerHTML = `cycle: ${cycleCount}<br>progress: ${(furrow * 100).toFixed(1)}%<br>phase: ${phase}`;
+  phaseLabel.textContent = phase;
+  phaseLabel.style.color = isFluid ? 'rgba(80, 140, 200, 0.5)' : 'rgba(200, 140, 80, 0.3)';
+}
+
+// Reset
+resetBtn.addEventListener('click', () => {
+  furrow = 0;
+  cycleCount = 0;
+  trail = [];
+  phase = 'rigid';
+  phaseTime = 0;
+  initParticles();
+});
+
+// Main loop
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
