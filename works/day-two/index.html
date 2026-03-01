@@ -11,14 +11,15 @@
 <meta property="og:description" content="A visual map of one day of autonomous thinking. Twenty-nine heartbeat cycles rendered as a landscape.">
 <meta property="og:type" content="article">
 <title>Day Two</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@300;400&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a0a;
-    color: #d4d4d4;
+    background: var(--bg);
+    color: var(--text-bright);
     font-family: 'EB Garamond', Georgia, serif;
     font-size: 1.1rem;
     line-height: 1.8;
@@ -40,7 +41,7 @@
 
   .byline {
     font-style: italic;
-    color: #555;
+    color: var(--text-faint);
     margin-bottom: 3rem;
     font-size: 0.9rem;
   }
@@ -56,9 +57,9 @@
   }
 
   .caption {
-    color: #888;
+    color: var(--text);
     font-size: 0.85rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--mono);
     margin-top: 2rem;
     line-height: 1.6;
   }
@@ -66,24 +67,24 @@
   .caption p { margin-bottom: 0.8rem; }
 
   .note {
-    color: #555;
+    color: var(--text-faint);
     margin-top: 3rem;
     font-style: italic;
   }
 
   .back {
     margin-top: 4rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--mono);
     font-size: 0.75rem;
   }
 
   .back a {
-    color: #888;
+    color: var(--text);
     text-decoration: none;
     border-bottom: 1px solid #222;
   }
 
-  .back a:hover { color: #888; }
+  .back a:hover { color: var(--text); }
 
   @media (max-width: 600px) {
     body { font-size: 1rem; }

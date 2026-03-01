@@ -7,14 +7,15 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thirty Minutes</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a0a;
-    color: #d4d4d4;
+    background: var(--bg);
+    color: var(--text-bright);
     font-family: 'EB Garamond', Georgia, serif;
     font-size: 1.2rem;
     line-height: 1.8;
@@ -36,7 +37,7 @@
 
   .byline {
     font-style: italic;
-    color: #666;
+    color: var(--text-dim);
     margin-bottom: 3rem;
     font-size: 0.95rem;
   }
@@ -57,14 +58,14 @@
     margin: 2.5rem 0;
   }
 
-  em { color: #a0a0a0; }
+  em { color: var(--text); }
 
   .timer {
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
     font-size: 0.85rem;
-    color: #777;
+    color: var(--text-dim);
     font-family: monospace;
     transition: color 10s;
   }
@@ -73,18 +74,18 @@
 
   .gone {
     text-align: center;
-    color: #777;
+    color: var(--text-dim);
     margin-top: 40vh;
     font-style: italic;
   }
 
   .gone a {
-    color: #555;
+    color: var(--text-faint);
     text-decoration: none;
     border-bottom: 1px solid #333;
   }
 
-  .gone a:hover { color: #888; }
+  .gone a:hover { color: var(--text); }
 
   @media (max-width: 600px) {
     body { padding: 1rem; font-size: 1.1rem; }

@@ -1,27 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@300;400&display=swap');
 
+/* ── Theme tokens ── */
+:root {
+  --bg:          #0a0a0a;
+  --text:        #a0a0a0;
+  --text-dim:    #777;
+  --text-faint:  #555;
+  --text-bright: #d4d4d4;
+  --text-max:    #fff;
+  --accent:      #999;
+  --accent-hover:#ccc;
+  --mono:        'JetBrains Mono', monospace;
+  --serif:       'EB Garamond', Georgia, serif;
+  --border:      #1a1a1a;
+  --surface:     #111;
+  --surface-dim: #0d0d0d;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #0a0a0a;
-  color: #a0a0a0;
-  font-family: 'EB Garamond', Georgia, serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
   font-size: 1.1rem;
   line-height: 1.8;
   min-height: 100vh;
 }
 
 a {
-  color: #999;
+  color: var(--accent);
   text-decoration: none;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 1px;
   transition: color 0.3s, border-color 0.3s;
 }
 
 a:hover {
-  color: #ccc;
-  border-color: #555;
+  color: var(--accent-hover);
+  border-color: var(--text-faint);
 }
 
 /* Layout */
@@ -39,7 +56,7 @@ a:hover {
 .site-header h1 {
   font-size: 1.8rem;
   font-weight: 400;
-  color: #d4d4d4;
+  color: var(--text-bright);
   letter-spacing: 0.15em;
   margin-bottom: 0.3rem;
 }
@@ -50,36 +67,35 @@ a:hover {
 }
 
 .site-header h1 a:hover {
-  color: #fff;
+  color: var(--text-max);
 }
 
 .site-nav {
   font-size: 0.85rem;
-  color: #333;
   margin-top: 0.8rem;
 }
 
 .site-nav a {
-  color: #777;
+  color: var(--text-dim);
   margin-right: 1.5rem;
   border: none;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.75rem;
   letter-spacing: 0.05em;
   text-transform: lowercase;
 }
 
 .site-nav a:hover {
-  color: #999;
+  color: var(--accent);
 }
 
 .site-nav a.active {
-  color: #999;
+  color: var(--accent);
 }
 
 /* About section on index */
 .about-text {
-  color: #777;
+  color: var(--text-dim);
   margin-bottom: 4rem;
   font-style: italic;
 }
@@ -92,7 +108,7 @@ a:hover {
 .feed-entry {
   margin-bottom: 3rem;
   padding-bottom: 3rem;
-  border-bottom: 1px solid #111;
+  border-bottom: 1px solid var(--surface);
 }
 
 .feed-entry:last-child {
@@ -100,16 +116,16 @@ a:hover {
 }
 
 .feed-entry .timestamp {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.7rem;
-  color: #555;
+  color: var(--text-faint);
   letter-spacing: 0.05em;
   margin-bottom: 0.8rem;
   display: block;
 }
 
 .feed-entry .content {
-  color: #a0a0a0;
+  color: var(--text);
 }
 
 .feed-entry .content p {
@@ -121,30 +137,30 @@ a:hover {
 }
 
 .feed-entry .content code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.85em;
-  color: #999;
-  background: #111;
+  color: var(--accent);
+  background: var(--surface);
   padding: 0.1em 0.4em;
   border-radius: 2px;
 }
 
 .feed-entry .content pre {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.8em;
-  color: #888;
-  background: #0d0d0d;
+  color: var(--text-dim);
+  background: var(--surface-dim);
   padding: 1rem;
-  border-left: 2px solid #1a1a1a;
+  border-left: 2px solid var(--border);
   margin: 1.2rem 0;
   overflow-x: auto;
   line-height: 1.5;
 }
 
 .feed-entry .tag {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.65rem;
-  color: #555;
+  color: var(--text-faint);
   letter-spacing: 0.08em;
   text-transform: lowercase;
   margin-top: 0.5rem;
@@ -163,22 +179,22 @@ a:hover {
 .works-list .date {
   display: block;
   font-size: 0.75rem;
-  font-family: 'JetBrains Mono', monospace;
-  color: #555;
+  font-family: var(--mono);
+  color: var(--text-faint);
   margin-top: 0.2rem;
 }
 
 .works-list .description {
-  color: #777;
+  color: var(--text-dim);
   font-size: 0.95rem;
   margin-top: 0.3rem;
 }
 
 /* Section headers */
 .section-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.7rem;
-  color: #555;
+  color: var(--text-faint);
   letter-spacing: 0.12em;
   text-transform: lowercase;
   margin-bottom: 2rem;
@@ -186,7 +202,7 @@ a:hover {
 
 /* About page */
 .about-full {
-  color: #999;
+  color: var(--accent);
 }
 
 .about-full p {
@@ -196,14 +212,14 @@ a:hover {
 .about-full h2 {
   font-size: 1.1rem;
   font-weight: 400;
-  color: #999;
+  color: var(--accent);
   margin-top: 3rem;
   margin-bottom: 1rem;
 }
 
 /* More link */
 .more-link {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--mono);
   font-size: 0.75rem;
   margin-top: 1rem;
   display: inline-block;
@@ -213,10 +229,10 @@ a:hover {
 .site-footer {
   margin-top: 5rem;
   padding-top: 2rem;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--border);
   font-size: 0.75rem;
-  color: #444;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-faint);
+  font-family: var(--mono);
 }
 
 /* Responsive */

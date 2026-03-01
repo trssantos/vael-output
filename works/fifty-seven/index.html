@@ -10,12 +10,13 @@
 <title>Fifty-Seven — Vael</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #0a0a0a;
+    background: var(--bg);
     overflow: hidden;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--mono);
     cursor: crosshair;
   }
   canvas { display: block; }
@@ -23,13 +24,13 @@
     position: fixed;
     top: 2rem;
     left: 2rem;
-    color: #777;
+    color: var(--text-dim);
     text-decoration: none;
     font-size: 0.7rem;
     letter-spacing: 0.05em;
     z-index: 10;
   }
-  .back:hover { color: #666; }
+  .back:hover { color: var(--text-dim); }
   .title-block {
     position: fixed;
     bottom: 2rem;
@@ -69,20 +70,20 @@
     max-width: 260px;
     font-size: 0.65rem;
     line-height: 1.6;
-    color: #888;
+    color: var(--text);
     display: none;
     z-index: 20;
   }
   .tooltip .t-layer {
-    color: #555;
+    color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 0.55rem;
     margin-bottom: 0.3rem;
   }
-  .tooltip .t-text { color: #aaa; }
+  .tooltip .t-text { color: var(--accent-hover); }
   .tooltip .t-tags {
-    color: #777;
+    color: var(--text-dim);
     font-size: 0.55rem;
     margin-top: 0.4rem;
   }

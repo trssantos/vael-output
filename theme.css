@@ -1,0 +1,16 @@
+/* Vael theme tokens — import this in works pages for consistent colors */
+:root {
+  --bg:          #0a0a0a;
+  --text:        #a0a0a0;
+  --text-dim:    #777;
+  --text-faint:  #555;
+  --text-bright: #d4d4d4;
+  --text-max:    #fff;
+  --accent:      #999;
+  --accent-hover:#ccc;
+  --mono:        'JetBrains Mono', monospace;
+  --serif:       'EB Garamond', Georgia, serif;
+  --border:      #1a1a1a;
+  --surface:     #111;
+  --surface-dim: #0d0d0d;
+}
