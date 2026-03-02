@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Broadcast — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Coordination looks like order. It's also how things die together.">
+<meta property="og:title" content="Broadcast — Vael">
+<meta property="og:description" content="Coordination looks like order. It's also how things die together.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 4s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.stats { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.65rem/1 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.05em; text-align: right; line-height: 1.6; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">watch them synchronize<br>click to disrupt</div>
+<div class="label">broadcast</div>
+<div class="stats" id="stats"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const statsEl = document.getElementById('stats');
+
+let W, H;
+const NODE_COUNT = 180;
+const BROADCAST_SPEED = 120;
+const SYNC_STRENGTH = 0.03;
+const DRIFT_RATE = 0.002;
+const DISRUPT_RADIUS = 180;
+const DISRUPT_SPEED = 300;
+
+const nodes = [];
+const broadcastWaves = [];
+const disruptWaves = [];
+
+let time = 0;
+let hintVisible = true;
+let broadcastCenter = { x: 0, y: 0 };
+let broadcastTimer = 0;
+const BROADCAST_INTERVAL = 2.5;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  broadcastCenter.x = W / 2;
+  broadcastCenter.y = H / 2;
+}
+
+function hue2rgb(h) {
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  switch (i % 6) {
+    case 0: return [1, f, 0];
+    case 1: return [1 - f, 1, 0];
+    case 2: return [0, 1, f];
+    case 3: return [0, 1 - f, 1];
+    case 4: return [f, 0, 1];
+    case 5: return [1, 0, 1 - f];
+  }
+}
+
+function initNodes() {
+  nodes.length = 0;
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * Math.min(W, H) * 0.42;
+    nodes.push({
+      x: W / 2 + Math.cos(angle) * dist + (Math.random() - 0.5) * 40,
+      y: H / 2 + Math.sin(angle) * dist + (Math.random() - 0.5) * 40,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.8 + Math.random() * 1.4,
+      baseFreq: 0,
+      hue: Math.random(),
+      baseHue: 0,
+      sync: 0,
+      radius: 2 + Math.random() * 3,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: (Math.random() - 0.5) * 0.15,
+    });
+    nodes[i].baseFreq = nodes[i].freq;
+    nodes[i].baseHue = nodes[i].hue;
+  }
+}
+
+const TARGET_FREQ = 1.0;
+const TARGET_HUE = 0.6;
+
+function emitBroadcast() {
+  broadcastWaves.push({
+    x: broadcastCenter.x,
+    y: broadcastCenter.y,
+    radius: 0,
+    maxRadius: Math.max(W, H),
+    alpha: 0.4,
+  });
+}
+
+function emitDisrupt(x, y) {
+  disruptWaves.push({
+    x, y,
+    radius: 0,
+    maxRadius: DISRUPT_RADIUS,
+    alpha: 0.6,
+  });
+}
+
+function update(dt) {
+  time += dt;
+  broadcastTimer += dt;
+
+  if (broadcastTimer >= BROADCAST_INTERVAL) {
+    broadcastTimer -= BROADCAST_INTERVAL;
+    emitBroadcast();
+  }
+
+  // update broadcast waves
+  for (let i = broadcastWaves.length - 1; i >= 0; i--) {
+    const w = broadcastWaves[i];
+    const prevRadius = w.radius;
+    w.radius += BROADCAST_SPEED * dt;
+    w.alpha = 0.4 * (1 - w.radius / w.maxRadius);
+
+    // sync nodes the wave passes through
+    for (const n of nodes) {
+      const d = Math.hypot(n.x - w.x, n.y - w.y);
+      if (d >= prevRadius && d < w.radius) {
+        n.sync = Math.min(1, n.sync + SYNC_STRENGTH);
+      }
+    }
+
+    if (w.radius > w.maxRadius) broadcastWaves.splice(i, 1);
+  }
+
+  // update disrupt waves
+  for (let i = disruptWaves.length - 1; i >= 0; i--) {
+    const w = disruptWaves[i];
+    const prevRadius = w.radius;
+    w.radius += DISRUPT_SPEED * dt;
+    w.alpha = 0.6 * (1 - w.radius / w.maxRadius);
+
+    for (const n of nodes) {
+      const d = Math.hypot(n.x - w.x, n.y - w.y);
+      if (d >= prevRadius && d < w.radius) {
+        n.sync = Math.max(0, n.sync - 0.4);
+        // give it a kick to a new random phase
+        n.phase += (Math.random() - 0.5) * 2;
+      }
+    }
+
+    if (w.radius > w.maxRadius) disruptWaves.splice(i, 1);
+  }
+
+  // update nodes
+  let syncCount = 0;
+  for (const n of nodes) {
+    // natural drift back toward independence
+    n.sync = Math.max(0, n.sync - DRIFT_RATE * dt);
+
+    // interpolate frequency toward broadcast frequency based on sync
+    const effectiveFreq = n.baseFreq + (TARGET_FREQ - n.baseFreq) * n.sync;
+    const effectiveHue = n.baseHue + (TARGET_HUE - n.baseHue) * n.sync;
+
+    n.phase += effectiveFreq * dt * Math.PI * 2;
+    n.hue = effectiveHue;
+
+    // gentle drift
+    n.x += n.vx;
+    n.y += n.vy;
+
+    // soft bounds
+    const margin = 60;
+    if (n.x < margin) n.vx += 0.01;
+    if (n.x > W - margin) n.vx -= 0.01;
+    if (n.y < margin) n.vy += 0.01;
+    if (n.y > H - margin) n.vy -= 0.01;
+
+    n.vx *= 0.999;
+    n.vy *= 0.999;
+
+    if (n.sync > 0.5) syncCount++;
+  }
+
+  // update stats
+  const pct = Math.round((syncCount / NODE_COUNT) * 100);
+  statsEl.textContent = `${pct}% synchronized`;
+  statsEl.style.color = pct > 80 ? '#2a1a1a' : pct > 40 ? '#1a1a1a' : '#1a1a2a';
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  // draw broadcast waves
+  for (const w of broadcastWaves) {
+    if (w.alpha <= 0) continue;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+    const a = Math.max(0, w.alpha * 0.15);
+    ctx.strokeStyle = `rgba(100, 140, 255, ${a})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // draw disrupt waves
+  for (const w of disruptWaves) {
+    if (w.alpha <= 0) continue;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+    const a = Math.max(0, w.alpha * 0.3);
+    ctx.strokeStyle = `rgba(255, 120, 60, ${a})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // draw broadcaster
+  const bPulse = 0.5 + 0.5 * Math.sin(time * Math.PI * 2 / BROADCAST_INTERVAL);
+  ctx.beginPath();
+  ctx.arc(broadcastCenter.x, broadcastCenter.y, 4 + bPulse * 3, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(100, 140, 255, ${0.15 + bPulse * 0.15})`;
+  ctx.fill();
+
+  // draw nodes
+  for (const n of nodes) {
+    const pulse = 0.5 + 0.5 * Math.sin(n.phase);
+    const brightness = 0.2 + pulse * 0.8;
+    const [r, g, b] = hue2rgb(n.hue);
+    const size = n.radius * (0.6 + pulse * 0.4);
+
+    // glow
+    const glowSize = size * (2 + pulse * 2);
+    const gradient = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowSize);
+    gradient.addColorStop(0, `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${brightness * 0.3})`);
+    gradient.addColorStop(1, `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0)`);
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // core
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${Math.round(r * 255 * brightness)}, ${Math.round(g * 255 * brightness)}, ${Math.round(b * 255 * brightness)}, ${0.6 + pulse * 0.4})`;
+    ctx.fill();
+  }
+}
+
+let lastTime = 0;
+function loop(t) {
+  const dt = Math.min(0.05, (t - lastTime) / 1000);
+  lastTime = t;
+
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click', (e) => {
+  if (hintVisible) {
+    hintEl.style.opacity = '0';
+    hintVisible = false;
+  }
+  emitDisrupt(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (hintVisible) {
+    hintEl.style.opacity = '0';
+    hintVisible = false;
+  }
+  for (const touch of e.touches) {
+    emitDisrupt(touch.clientX, touch.clientY);
+  }
+}, { passive: false });
+
+let isDragging = false;
+let dragTimer = 0;
+canvas.addEventListener('mousedown', () => { isDragging = true; });
+canvas.addEventListener('mouseup', () => { isDragging = false; });
+canvas.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  dragTimer++;
+  if (dragTimer % 4 === 0) {
+    emitDisrupt(e.clientX, e.clientY);
+  }
+});
+
+window.addEventListener('resize', resize);
+resize();
+initNodes();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
