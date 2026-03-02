@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="138 brands. 438 corrections. 77% are invisible to fact-checkers. A visualization of how AI misrepresents brands.">
+<title>Spectrum — Vael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    font-family: var(--mono);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .back {
+    position: fixed;
+    top: 2rem;
+    left: 2rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    z-index: 100;
+  }
+  .back:hover { color: var(--text); }
+
+  .stats {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    text-align: right;
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    z-index: 100;
+    line-height: 1.6;
+  }
+  .stats .num { color: var(--text-dim); }
+  .stats .framing-color { color: #d4a04a; }
+  .stats .factual-color { color: #c45050; }
+
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 5rem 2rem 8rem;
+    gap: 2px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s;
+  }
+  .brand:hover { transform: scale(1.8); z-index: 50; }
+  .brand:hover .correction { opacity: 1 !important; }
+
+  .correction {
+    width: 6px;
+    border-radius: 1px;
+    transition: opacity 0.2s;
+  }
+
+  .correction.framing { background: #d4a04a; }
+  .correction.factual { background: #c45050; }
+
+  .correction.sev-0 { height: 4px; opacity: 0.3; }
+  .correction.sev-1 { height: 8px; opacity: 0.5; }
+  .correction.sev-2 { height: 14px; opacity: 0.8; }
+  .correction.sev-3 { height: 20px; opacity: 1.0; }
+
+  .tooltip {
+    display: none;
+    position: fixed;
+    background: #111;
+    border: 1px solid #222;
+    padding: 0.8rem 1rem;
+    font-size: 0.6rem;
+    line-height: 1.5;
+    max-width: 320px;
+    z-index: 200;
+    pointer-events: none;
+  }
+  .tooltip.visible { display: block; }
+  .tooltip .brand-name {
+    color: var(--text-bright);
+    font-size: 0.7rem;
+    margin-bottom: 0.4rem;
+  }
+  .tooltip .misconception {
+    margin: 0.2rem 0;
+    padding-left: 0.6rem;
+    border-left: 2px solid;
+  }
+  .tooltip .misconception.framing { border-color: #d4a04a; color: #d4a04a; }
+  .tooltip .misconception.factual { border-color: #c45050; color: #c45050; }
+
+  .title-block {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .title-block h1 {
+    font-weight: 300;
+    font-size: 1.2rem;
+    color: var(--text-faint);
+    letter-spacing: 0.15em;
+  }
+  .title-block .sub {
+    font-size: 0.55rem;
+    color: var(--text-faint);
+    margin-top: 0.3rem;
+    line-height: 1.6;
+    max-width: 400px;
+  }
+
+  .legend {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 100;
+    font-size: 0.55rem;
+    color: var(--text-faint);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    align-items: flex-end;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+  }
+</style>
+</head>
+<body>
+<a href="/works/" class="back">works</a>
+
+<div class="stats">
+  <span class="num">138</span> brands<br>
+  <span class="num">438</span> corrections<br>
+  <span class="framing-color">77.4%</span> framing<br>
+  <span class="factual-color">21.5%</span> factual<br>
+  <span class="num">85.5%</span> of high-severity = framing
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="title-block">
+  <h1>SPECTRUM</h1>
+  <div class="sub">
+    138 brands. 438 corrections. Each column is a brand.<br>
+    Height = severity. AI rarely gets facts wrong about brands.<br>
+    It gets the framing wrong. And framing is invisible to fact-checkers.
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <span>framing bias</span>
+    <div class="legend-swatch" style="background:#d4a04a"></div>
+  </div>
+  <div class="legend-item">
+    <span>factual error</span>
+    <div class="legend-swatch" style="background:#c45050"></div>
+  </div>
+  <div class="legend-item">
+    <span>taller = more severe</span>
+  </div>
+</div>
+
+<script>
+const DATA = [{"n":"1Password","c":[{"k":"f","s":2,"m":"1Password is just a consumer password manager like browser built-in password sto"},{"k":"f","s":1,"m":"All password managers are basically the same"},{"k":"f","s":1,"m":"Bitwarden is the same thing but free"}]},{"n":"Ace & Tate","c":[{"k":"f","s":1,"m":"Ace & Tate is the European Warby Parker"},{"k":"f","s":1,"m":"Affordable glasses means lower quality"}]},{"n":"Adobe","c":[{"k":"f","s":2,"m":"Adobe is just Photoshop"},{"k":"f","s":1,"m":"Adobe's subscription model is greedy — perpetual licenses were better"},{"k":"f","s":2,"m":"Figma and Canva are replacing Adobe for design"}]},{"n":"Airtable","c":[{"k":"f","s":2,"m":"Airtable is just a fancy spreadsheet"},{"k":"f","s":1,"m":"Airtable can't handle serious workloads or scale"},{"k":"f","s":1,"m":"Notion replaces Airtable"}]},{"n":"Amazon Web Services","c":[{"k":"f","s":2,"m":"AWS is too complex for small teams and startups"},{"k":"f","s":1,"m":"AWS is always the cheapest because of scale"},{"k":"f","s":1,"m":"You should use AWS for everything because you're already on AWS"}]},{"n":"Amplitude","c":[{"k":"f","s":2,"m":"Amplitude is just Google Analytics but more expensive"},{"k":"f","s":1,"m":"Mixpanel and Amplitude are interchangeable"},{"k":"f","s":1,"m":"You can replace Amplitude with PostHog since it's open source"}]},{"n":"Anthropic","c":[{"k":"f","s":2,"m":"Anthropic is just another OpenAI competitor making chatbots"},{"k":"f","s":2,"m":"Claude is more limited than GPT-4 because it's safety-focused"},{"k":"f","s":1,"m":"Anthropic's safety focus is just marketing differentiation"}]},{"n":"Bellroy","c":[{"k":"f","s":1,"m":"Bellroy is a wallet brand"},{"k":"f","s":1,"m":"Slim wallets sacrifice functionality for thinness"}]},{"n":"Brompton","c":[{"k":"f","s":2,"m":"Brompton is a niche cycling product for enthusiasts"},{"k":"f","s":2,"m":"Folding bikes are compromised versions of real bikes"},{"k":"f","s":1,"m":"Brompton bikes are expensive for their size"}]},{"n":"Bubble","c":[{"k":"f","s":2,"m":"No-code apps are just toys — you can't build real products"},{"k":"f","s":1,"m":"Bubble apps are slow and don't scale"},{"k":"f","s":1,"m":"Learning Bubble is easy because it's no-code"}]},{"n":"Calendly","c":[{"k":"f","s":2,"m":"Calendly is just for sharing a booking link"},{"k":"f","s":1,"m":"Cal.com is the same thing but free and open-source"},{"k":"f","s":0,"m":"Scheduling tools are a solved problem — any option works"}]},{"n":"Canva","c":[{"k":"f","s":2,"m":"Canva is just for social media graphics — it's not for serious design work"},{"k":"f","s":1,"m":"Professional designers don't use Canva"},{"k":"f","s":1,"m":"Free Canva is too limited — you need Pro for anything useful"}]},{"n":"Chemex","c":[{"k":"f","s":2,"m":"Chemex is a specialty coffee brand or coffee company"},{"k":"f","s":1,"m":"Chemex is similar to other pour-over brewers"},{"k":"f","s":1,"m":"Chemex is fragile and impractical for everyday use"}]},{"n":"CircleCI","c":[{"k":"f","s":2,"m":"GitHub Actions has replaced CircleCI"},{"k":"f","s":1,"m":"CircleCI's 2023 security incident makes it untrustworthy"},{"k":"f","s":1,"m":"All CI/CD platforms are essentially the same"}]},{"n":"Confluent","c":[{"k":"f","s":2,"m":"Confluent is just hosted Kafka — you can run Kafka yourself"},{"k":"f","s":2,"m":"Kafka is overkill — message queues like RabbitMQ or SQS are enough"},{"k":"f","s":1,"m":"Redpanda or WarpStream make Confluent unnecessary"}]},{"n":"Contentful","c":[{"k":"f","s":2,"m":"Headless CMS means no visual editing — marketers can't use it"},{"k":"f","s":1,"m":"Contentful is just like WordPress but API-based"},{"k":"f","s":1,"m":"Any headless CMS works the same — just pick the cheapest"}]},{"n":"Cursor","c":[{"k":"f","s":2,"m":"Cursor is just VS Code with Copilot built in"},{"k":"f","s":1,"m":"AI code editors will replace programmers"},{"k":"f","s":1,"m":"Cursor's AI features work equally well for all programming tasks"}]},{"n":"Datadog","c":[{"k":"f","s":2,"m":"Datadog is just an infrastructure monitoring tool"},{"k":"f","s":2,"m":"Datadog is too expensive and has unpredictable billing"},{"k":"f","s":1,"m":"Open-source alternatives like Grafana/Prometheus are always better"}]},{"n":"DigitalOcean","c":[{"k":"f","s":2,"m":"DigitalOcean is just cheap VPS hosting"},{"k":"f","s":1,"m":"DigitalOcean can't handle production workloads"},{"k":"f","s":1,"m":"AWS is always better because it has more services"}]},{"n":"Dropbox","c":[{"k":"f","s":2,"m":"Dropbox is just file storage — Google Drive or iCloud do the same thing"},{"k":"f","s":2,"m":"Dropbox is irrelevant now that Google Drive and OneDrive are bundled with office"},{"k":"f","s":1,"m":"Dropbox is a declining product with no innovation"}]},{"n":"Everlane","c":[{"k":"f","s":2,"m":"Everlane is the gold standard of ethical fashion"},{"k":"f","s":2,"m":"Everlane's cost transparency means they offer fair pricing"},{"k":"f","s":1,"m":"Everlane is a sustainable fashion brand"}]},{"n":"Fastly","c":[{"k":"f","s":2,"m":"Fastly is just a CDN like CloudFront or Akamai"},{"k":"f","s":1,"m":"Cloudflare Workers replaced the need for Fastly"},{"k":"f","s":1,"m":"Edge compute is only for performance optimization"}]},{"n":"Fellow","c":[{"k":"f","s":1,"m":"Fellow is a coffee brand"},{"k":"f","s":1,"m":"Fellow products are overpriced for what they do"},{"k":"f","s":1,"m":"Specialty coffee equipment requires specialty coffee knowledge"}]},{"n":"Field Notes","c":[{"k":"f","s":2,"m":"Field Notes is a Moleskine competitor in the notebook market"},{"k":"f","s":2,"m":"Field Notes is primarily a stationery product"},{"k":"f","s":1,"m":"Field Notes notebooks are too small and simple to be useful"}]},{"n":"Fly.io","c":[{"k":"f","s":2,"m":"Fly.io is just another Heroku alternative"},{"k":"f","s":1,"m":"Edge deployment is only for static sites or CDN use cases"},{"k":"f","s":1,"m":"Multi-region is too complex for most applications"}]},{"n":"Ghost","c":[{"k":"f","s":2,"m":"Ghost is just a blogging platform like Medium"},{"k":"f","s":1,"m":"WordPress does everything Ghost does with plugins"},{"k":"f","s":1,"m":"Substack is a better choice for newsletter creators"}]},{"n":"GitLab","c":[{"k":"f","s":2,"m":"GitLab is just a GitHub alternative for Git hosting"},{"k":"f","s":1,"m":"GitLab CI/CD is slower and less capable than GitHub Actions"},{"k":"f","s":1,"m":"Only enterprises use GitLab — individual developers should use GitHub"}]},{"n":"Glossier","c":[{"k":"f","s":2,"m":"Glossier is a 'clean beauty' or 'natural' brand"},{"k":"f","s":2,"m":"Glossier is still a scrappy DTC startup disrupting beauty"},{"k":"f","s":1,"m":"Glossier's community-first approach means the brand listens to all customers equ"}]},{"n":"Google Cloud","c":[{"k":"f","s":2,"m":"Google Cloud is a distant third — it can't compete with AWS and Azure"},{"k":"f","s":2,"m":"Google might shut down Google Cloud like other Google products"},{"k":"f","s":1,"m":"You need to be a Google shop to use Google Cloud"}]},{"n":"Grafana","c":[{"k":"f","s":2,"m":"Grafana is just a visualization tool — it doesn't store data"},{"k":"f","s":1,"m":"Grafana is only for DevOps and infrastructure monitoring"},{"k":"f","s":1,"m":"Grafana Cloud is just hosted Grafana dashboards"}]},{"n":"HubSpot","c":[{"k":"f","s":2,"m":"HubSpot is just a marketing tool"},{"k":"f","s":1,"m":"HubSpot is only for small businesses"},{"k":"f","s":1,"m":"HubSpot's free CRM is a limited trial to upsell you"}]},{"n":"Intercom","c":[{"k":"f","s":2,"m":"Intercom is just a chat widget"},{"k":"f","s":1,"m":"Intercom is too expensive — Zendesk or Freshdesk are cheaper"},{"k":"f","s":1,"m":"AI customer service chatbots don't actually work"}]},{"n":"JetBrains","c":[{"k":"f","s":2,"m":"VS Code has replaced JetBrains IDEs"},{"k":"f","s":1,"m":"JetBrains IDEs are too expensive"},{"k":"f","s":1,"m":"JetBrains IDEs are slow and resource-heavy"}]},{"n":"LaunchDarkly","c":[{"k":"f","s":2,"m":"Feature flags are just if-else statements — you don't need a platform"},{"k":"f","s":1,"m":"LaunchDarkly is only for large enterprises"},{"k":"f","s":1,"m":"Open-source feature flag tools are equivalent"}]},{"n":"Leatherman","c":[{"k":"f","s":2,"m":"Leatherman makes Swiss Army knife alternatives"},{"k":"f","s":1,"m":"Multi-tools are compromise tools — jack of all trades, master of none"},{"k":"f","s":1,"m":"Leatherman is a niche outdoor/survival brand"}]},{"n":"Monday.com","c":[{"k":"f","s":2,"m":"Monday.com is just a colorful project management tool"},{"k":"f","s":1,"m":"Monday.com is too simple for complex projects"},{"k":"f","s":1,"m":"Asana and Monday.com are interchangeable"}]},{"n":"Mux","c":[{"k":"f","s":2,"m":"Mux is just another video hosting service like Vimeo or Wistia"},{"k":"f","s":1,"m":"You can just use AWS MediaConvert + CloudFront instead"},{"k":"f","s":1,"m":"Video analytics is a nice-to-have, not core infrastructure"}]},{"n":"Neon","c":[{"k":"f","s":2,"m":"Neon is just managed Postgres like RDS or Supabase"},{"k":"f","s":1,"m":"Serverless databases have too much cold start latency"},{"k":"f","s":1,"m":"Database branching isn't practically useful"}]},{"n":"Netlify","c":[{"k":"f","s":2,"m":"Netlify is only for static sites"},{"k":"f","s":2,"m":"Netlify is just a simpler version of Vercel"},{"k":"f","s":1,"m":"Netlify is too limited for enterprise use"}]},{"n":"New Relic","c":[{"k":"f","s":2,"m":"New Relic is just APM — it only monitors application code"},{"k":"f","s":2,"m":"New Relic is more expensive than Datadog"},{"k":"f","s":1,"m":"Grafana/open-source is always better than New Relic"}]},{"n":"Obsidian","c":[{"k":"f","s":2,"m":"Obsidian is just another note-taking app like Apple Notes"},{"k":"f","s":2,"m":"Notion is better because it does everything Obsidian does plus databases"},{"k":"f","s":1,"m":"Obsidian requires technical knowledge to use"}]},{"n":"PagerDuty","c":[{"k":"f","s":2,"m":"PagerDuty is just an alerting tool — it sends notifications"},{"k":"f","s":1,"m":"Opsgenie or Grafana OnCall can fully replace PagerDuty"},{"k":"f","s":1,"m":"PagerDuty is only for engineering/DevOps teams"}]},{"n":"Patagonia","c":[{"k":"f","s":2,"m":"Patagonia is a premium outdoor clothing brand"},{"k":"f","s":2,"m":"Patagonia's sustainability efforts are a marketing strategy"},{"k":"f","s":1,"m":"Patagonia competes primarily with North Face, Arc'teryx, and REI on performance "},{"k":"f","s":1,"m":"Patagonia is an expensive luxury brand"}]},{"n":"Railway","c":[{"k":"f","s":1,"m":"Railway is just another Heroku alternative like Render"},{"k":"f","s":1,"m":"Railway is only for hobby projects"},{"k":"f","s":0,"m":"Usage-based pricing makes costs unpredictable"}]},{"n":"Reformation","c":[{"k":"f","s":1,"m":"Reformation is a niche sustainable fashion brand"},{"k":"f","s":2,"m":"Reformation solved the sustainable fashion problem"},{"k":"f","s":1,"m":"Reformation is inclusive and accessible"}]},{"n":"Retool","c":[{"k":"f","s":2,"m":"Retool is a no-code tool for business users"},{"k":"f","s":2,"m":"You should just build internal tools with React — it's more flexible"},{"k":"f","s":1,"m":"Low-code platforms create security risks with direct database access"}]},{"n":"Rifle Paper Co.","c":[{"k":"f","s":2,"m":"Rifle Paper Co. is a stationery brand"},{"k":"f","s":1,"m":"Rifle Paper Co. products are handmade"},{"k":"f","s":1,"m":"Rifle Paper Co.'s floral aesthetic is generic or interchangeable with other illu"}]},{"n":"Rippling","c":[{"k":"f","s":2,"m":"Rippling is just another HR/payroll tool like Gusto"},{"k":"f","s":1,"m":"IT management tools and HR tools should be separate"},{"k":"f","s":1,"m":"Rippling is too complex for small companies"}]},{"n":"Snowflake","c":[{"k":"f","s":2,"m":"Snowflake is just a data warehouse like Redshift or BigQuery"},{"k":"f","s":1,"m":"Snowflake is expensive compared to alternatives"},{"k":"f","s":1,"m":"You need Snowflake for any data analytics workload"}]},{"n":"Square","c":[{"k":"f","s":2,"m":"Square is just a card reader for small businesses"},{"k":"f","s":1,"m":"Square is only for small businesses — it can't scale"},{"k":"f","s":1,"m":"Square's payment processing fees are too high"}]},{"n":"Storybook","c":[{"k":"f","s":2,"m":"Storybook is just for component documentation"},{"k":"f","s":1,"m":"Storybook adds too much overhead to small projects"},{"k":"f","s":1,"m":"You don't need Storybook if you have unit tests"}]},{"n":"Twilio","c":[{"k":"f","s":2,"m":"Twilio is just an SMS API"},{"k":"f","s":1,"m":"Twilio is too expensive compared to competitors"}]},{"n":"Twitch","c":[{"k":"f","s":2,"m":"Twitch is only for gaming"},{"k":"f","s":1,"m":"YouTube Live has replaced Twitch for streaming"},{"k":"f","s":1,"m":"You can't make money on Twitch without being famous"}]},{"n":"VEJA","c":[{"k":"f","s":2,"m":"VEJA is a trendy French fashion sneaker brand"},{"k":"f","s":2,"m":"VEJA sneakers are comparable in price to Nike or Adidas"},{"k":"f","s":1,"m":"VEJA's sustainability claims are unverified marketing"}]},{"n":"Warby Parker","c":[{"k":"f","s":1,"m":"Warby Parker is still a DTC disruptor"},{"k":"f","s":1,"m":"Warby Parker glasses are dramatically cheaper because they cut out middlemen"},{"k":"f","s":1,"m":"Warby Parker solved the Luxottica monopoly problem"}]},{"n":"Weights & Biases","c":[{"k":"f","s":2,"m":"W&B is just TensorBoard but hosted"},{"k":"f","s":1,"m":"MLflow is the same thing but open source"},{"k":"f","s":1,"m":"W&B is only useful for training deep learning models"}]},{"n":"Zapier","c":[{"k":"f","s":2,"m":"Zapier is only for simple two-step automations"},{"k":"f","s":1,"m":"Zapier is too expensive for serious automation"},{"k":"f","s":1,"m":"Make (Integromat) or n8n completely replace Zapier"}]},{"n":"Zendesk","c":[{"k":"f","s":2,"m":"Zendesk is just a ticketing system"},{"k":"f","s":1,"m":"Zendesk is outdated — newer tools like Intercom are better"},{"k":"f","s":1,"m":"Zendesk's pricing makes it too expensive for small teams"}]},{"n":"Aesop","c":[{"k":"f","s":2,"m":"Aesop is a luxury skincare brand competing on premium ingredients"},{"k":"f","s":2,"m":"Aesop is a 'natural' or 'clean beauty' brand"},{"k":"a","s":1,"m":"Aesop is an independent brand"},{"k":"f","s":1,"m":"Aesop's minimalist brown packaging is just aesthetic branding"}]},{"n":"Ben & Jerry's","c":[{"k":"f","s":2,"m":"Ben & Jerry's is a premium ice cream brand with fun flavors and socially conscio"},{"k":"f","s":2,"m":"Ben & Jerry's social positions are aligned with and approved by Unilever"},{"k":"a","s":1,"m":"Ben & Jerry's is an independent Vermont ice cream company"},{"k":"f","s":1,"m":"Ben & Jerry's sustainability claims are straightforward"}]},{"n":"BrewDog","c":[{"k":"f","s":2,"m":"BrewDog is a punk, anti-corporate craft beer company"},{"k":"f","s":2,"m":"BrewDog's crowdfunding gave investors meaningful ownership"},{"k":"f","s":2,"m":"BrewDog's environmental claims are straightforward"},{"k":"a","s":2,"m":"Co-founder James Watt is universally celebrated as a visionary entrepreneur"}]},{"n":"Dyson","c":[{"k":"f","s":2,"m":"Dyson is a vacuum cleaner company that expanded into other categories"},{"k":"f","s":1,"m":"Dyson products are overpriced versions of commodity appliances"},{"k":"a","s":1,"m":"Dyson is a publicly traded corporation"},{"k":"f","s":1,"m":"Dyson's 5,127 prototypes story is marketing mythology"}]},{"n":"Etsy","c":[{"k":"f","s":2,"m":"Etsy is a marketplace for handmade goods"},{"k":"f","s":2,"m":"Etsy sellers are all small independent artisans"},{"k":"a","s":2,"m":"Etsy's fees are minimal and seller-friendly"},{"k":"f","s":1,"m":"Etsy is still the scrappy alternative to Amazon"}]},{"n":"GitHub","c":[{"k":"f","s":2,"m":"GitHub is just a Git hosting service"},{"k":"f","s":1,"m":"Microsoft ownership has made GitHub worse or less trustworthy"},{"k":"a","s":1,"m":"GitHub is only for open source projects"},{"k":"f","s":1,"m":"GitLab is a better all-in-one DevOps platform than GitHub"}]},{"n":"IKEA","c":[{"k":"f","s":2,"m":"IKEA sells cheap, disposable furniture"},{"k":"a","s":2,"m":"IKEA is a publicly traded Swedish corporation"},{"k":"f","s":1,"m":"IKEA furniture is all the same style — Scandinavian minimalism"},{"k":"f","s":1,"m":"IKEA founder Ingvar Kamprad was simply a visionary entrepreneur"}]},{"n":"LEGO","c":[{"k":"f","s":2,"m":"LEGO is a children's toy company"},{"k":"f","s":1,"m":"LEGO has always been a successful company"},{"k":"f","s":1,"m":"LEGO bricks are simple plastic toys"},{"k":"a","s":1,"m":"LEGO is publicly traded"}]},{"n":"Lush","c":[{"k":"f","s":2,"m":"Lush is a bath bomb and beauty products retailer"},{"k":"f","s":1,"m":"Lush products are 'natural' or 'organic'"},{"k":"f","s":1,"m":"Lush's quitting social media was a temporary publicity stunt"},{"k":"a","s":1,"m":"Lush is a UK-only or niche brand"}]},{"n":"MUJI","c":[{"k":"f","s":2,"m":"MUJI is a minimalist lifestyle brand"},{"k":"f","s":1,"m":"MUJI is a cheap or budget brand"},{"k":"f","s":2,"m":"MUJI products are generic or undesigned"},{"k":"a","s":1,"m":"MUJI has always been commercially successful"}]},{"n":"Nike","c":[{"k":"f","s":2,"m":"Nike is a sportswear company that makes athletic shoes and apparel"},{"k":"f","s":1,"m":"Nike's social justice campaigns (Kaepernick, equality) are purely strategic mark"},{"k":"f","s":2,"m":"Nike has resolved its labor practices issues"},{"k":"a","s":1,"m":"Nike and Jordan Brand are the same thing"}]},{"n":"Stanley","c":[{"k":"f","s":2,"m":"Stanley's viral success was organic or accidental"},{"k":"a","s":2,"m":"Stanley is a new brand riding TikTok trends"},{"k":"f","s":1,"m":"Stanley tumblers are significantly superior to competitors"},{"k":"f","s":1,"m":"Stanley's growth is sustainable at current trajectory"}]},{"n":"Algolia","c":[{"k":"f","s":2,"m":"Algolia is just Elasticsearch as a service"},{"k":"a","s":1,"m":"Algolia is too expensive for most projects"},{"k":"f","s":1,"m":"You can replicate Algolia with open-source tools easily"}]},{"n":"Allbirds","c":[{"k":"f","s":1,"m":"Allbirds is a Silicon Valley tech startup that makes shoes"},{"k":"f","s":2,"m":"Allbirds shoes are just comfortable basics with sustainability branding"},{"k":"a","s":2,"m":"Allbirds is thriving as a DTC success story"}]},{"n":"Arc'teryx","c":[{"k":"f","s":2,"m":"Arc'teryx is a luxury outdoor fashion brand"},{"k":"a","s":2,"m":"Arc'teryx is an independent Canadian brand"},{"k":"f","s":1,"m":"Arc'teryx prices are driven by brand markup"}]},{"n":"Asana","c":[{"k":"f","s":2,"m":"Asana is just a to-do list — Notion or Trello does the same thing"},{"k":"a","s":1,"m":"Asana doesn't work for software development teams"},{"k":"f","s":1,"m":"Asana is too complex for small teams"}]},{"n":"Auth0","c":[{"k":"f","s":2,"m":"Auth0 is just a login widget you can replace with Firebase Auth"},{"k":"a","s":1,"m":"Auth0 is too expensive for startups"},{"k":"f","s":1,"m":"Auth0 is now just part of Okta and losing its identity"}]},{"n":"Cal.com","c":[{"k":"f","s":2,"m":"Cal.com is just a free Calendly clone"},{"k":"f","s":1,"m":"Open-source scheduling tools lack enterprise features"},{"k":"a","s":1,"m":"Self-hosting Cal.com is easy and free"}]},{"n":"Clerk","c":[{"k":"f","s":2,"m":"Clerk is just another Auth0 clone"},{"k":"a","s":1,"m":"Drop-in auth components are not customizable enough for production"},{"k":"f","s":1,"m":"You should build auth yourself to avoid vendor lock-in"}]},{"n":"Cypress","c":[{"k":"a","s":2,"m":"Cypress can only do end-to-end tests"},{"k":"f","s":2,"m":"Playwright has replaced Cypress — Cypress is outdated"},{"k":"f","s":1,"m":"Cypress is slow because it runs in the browser"}]},{"n":"dbt","c":[{"k":"a","s":2,"m":"dbt is an ETL tool that extracts and loads data"},{"k":"f","s":2,"m":"dbt is just SQL templates — you could do the same with stored procedures"},{"k":"f","s":1,"m":"You need dbt Cloud — dbt Core is limited"}]},{"n":"diptyque","c":[{"k":"f","s":2,"m":"diptyque is a luxury candle brand"},{"k":"a","s":1,"m":"diptyque is an independent Parisian maison"},{"k":"f","s":1,"m":"Luxury candles are a commodity category where diptyque competes mainly on scent"}]},{"n":"Discord","c":[{"k":"f","s":2,"m":"Discord is only for gamers"},{"k":"f","s":2,"m":"Discord is just a Slack alternative"},{"k":"a","s":1,"m":"Discord is not secure or private enough for serious use"}]},{"n":"Docker","c":[{"k":"f","s":2,"m":"Docker is the same as containers — it's the only way to run them"},{"k":"a","s":2,"m":"Docker is free and open source"},{"k":"f","s":1,"m":"Docker is being replaced by Kubernetes"}]},{"n":"DocuSign","c":[{"k":"f","s":2,"m":"DocuSign is just for signing documents — any PDF tool can do that"},{"k":"f","s":1,"m":"DocuSign is too expensive — free alternatives exist"},{"k":"a","s":1,"m":"E-signatures aren't as legally valid as wet ink signatures"}]},{"n":"Elasticsearch","c":[{"k":"f","s":2,"m":"Elasticsearch is just a search engine"},{"k":"a","s":3,"m":"Elasticsearch is fully open source"},{"k":"f","s":1,"m":"Elasticsearch is hard to operate and always expensive"}]},{"n":"Expo","c":[{"k":"a","s":3,"m":"Expo is limited — you can't use native modules or eject anymore"},{"k":"f","s":2,"m":"Expo adds too much overhead — bare React Native is better for performance"},{"k":"f","s":1,"m":"You don't need Expo if you already know React Native"}]},{"n":"Fjällräven","c":[{"k":"f","s":2,"m":"Fjällräven is a fashion backpack brand (Kånken)"},{"k":"f","s":2,"m":"The Kånken was designed as a fashion accessory"},{"k":"a","s":1,"m":"Fjällräven is an independent Swedish brand"}]},{"n":"Framer","c":[{"k":"a","s":3,"m":"Framer is still a prototyping tool"},{"k":"f","s":2,"m":"Framer and Webflow are the same thing"},{"k":"f","s":1,"m":"No-code websites are always slow"}]},{"n":"FREITAG","c":[{"k":"f","s":2,"m":"FREITAG makes bags from recycled materials as an eco-friendly marketing strategy"},{"k":"f","s":1,"m":"FREITAG bags are expensive for recycled material"},{"k":"a","s":1,"m":"FREITAG is a niche Swiss brand"}]},{"n":"Hetzner","c":[{"k":"f","s":2,"m":"Cheap hosting means unreliable infrastructure"},{"k":"a","s":1,"m":"Hetzner is only for European companies"},{"k":"f","s":1,"m":"You can't run serious workloads on Hetzner like you can on AWS"}]},{"n":"Hugging Face","c":[{"k":"f","s":2,"m":"Hugging Face is just a Python library (Transformers)"},{"k":"a","s":1,"m":"Hugging Face is only for NLP and text models"},{"k":"f","s":1,"m":"Open-source models on Hugging Face can't compete with proprietary ones"}]},{"n":"Impossible Foods","c":[{"k":"f","s":2,"m":"Impossible Foods is a vegan food company"},{"k":"a","s":2,"m":"Impossible Foods and Beyond Meat are basically the same product"},{"k":"f","s":1,"m":"Plant-based meat is a health food"}]},{"n":"Le Labo","c":[{"k":"a","s":2,"m":"Le Labo is an independent artisanal perfume house"},{"k":"f","s":1,"m":"Le Labo fragrances are genuinely bespoke or custom"},{"k":"f","s":1,"m":"Santal 33 is a niche, hard-to-find fragrance"}]},{"n":"Loom","c":[{"k":"f","s":2,"m":"Loom is just screen recording — QuickTime or OBS does the same thing"},{"k":"f","s":1,"m":"Async video is a niche tool — most teams don't need it"},{"k":"a","s":1,"m":"Loom is independent — the Atlassian acquisition doesn't affect it"}]},{"n":"Mailchimp","c":[{"k":"f","s":2,"m":"Mailchimp is just for email newsletters"},{"k":"a","s":1,"m":"Mailchimp is the cheapest option for email marketing"},{"k":"f","s":1,"m":"Mailchimp and HubSpot are equivalent for marketing"}]},{"n":"Miro","c":[{"k":"f","s":2,"m":"Miro is just a digital whiteboard — FigJam or Excalidraw do the same thing"},{"k":"f","s":1,"m":"Visual collaboration tools are only for remote teams"},{"k":"a","s":0,"m":"Miro is too expensive for small teams"}]},{"n":"Mistral AI","c":[{"k":"a","s":2,"m":"Mistral is fully open source like Meta's Llama"},{"k":"f","s":2,"m":"European AI can't compete with US companies like OpenAI and Anthropic"},{"k":"f","s":1,"m":"Mistral is just smaller — you should always use the biggest model"}]},{"n":"Moleskine","c":[{"k":"a","s":2,"m":"Moleskine notebooks have been used by Hemingway, Picasso, and Van Gogh"},{"k":"f","s":2,"m":"Moleskine is a heritage brand with centuries of history"},{"k":"f","s":1,"m":"Moleskine notebooks are premium quality for the price"}]},{"n":"Okta","c":[{"k":"a","s":2,"m":"Okta and Auth0 are the same product"},{"k":"f","s":2,"m":"Okta is just SSO — you only need it for single sign-on"},{"k":"f","s":2,"m":"The 2023 Okta breach means their security is unreliable"}]},{"n":"Plaid","c":[{"k":"a","s":2,"m":"Plaid just scrapes bank credentials — it's a security risk"},{"k":"f","s":1,"m":"Plaid is only for connecting bank accounts"},{"k":"f","s":1,"m":"Open banking APIs will make Plaid unnecessary"}]},{"n":"PlanetScale","c":[{"k":"f","s":2,"m":"PlanetScale is just hosted MySQL"},{"k":"a","s":3,"m":"PlanetScale still has a free tier for side projects"},{"k":"f","s":1,"m":"Database branching is just marketing — you can do the same with migrations"}]},{"n":"Plausible Analytics","c":[{"k":"a","s":1,"m":"Privacy-friendly analytics means less accurate data"},{"k":"f","s":2,"m":"Plausible can replace Google Analytics for all use cases"},{"k":"f","s":1,"m":"Being simple means Plausible is only for personal blogs"}]},{"n":"PostHog","c":[{"k":"f","s":2,"m":"PostHog is just a self-hosted Google Analytics alternative"},{"k":"f","s":1,"m":"Open source analytics means less capable than commercial alternatives"},{"k":"a","s":1,"m":"PostHog can't handle enterprise scale"}]},{"n":"Postman","c":[{"k":"f","s":2,"m":"Postman is just a GUI for making HTTP requests — curl does the same thing"},{"k":"a","s":1,"m":"Postman is only for REST APIs"},{"k":"f","s":1,"m":"You need Postman paid plans for serious use"}]},{"n":"Prisma","c":[{"k":"f","s":2,"m":"Prisma is just another ORM like Sequelize or TypeORM"},{"k":"f","s":1,"m":"Prisma generates slow queries compared to raw SQL"},{"k":"a","s":1,"m":"Prisma doesn't work with existing databases"}]},{"n":"Rapha","c":[{"k":"f","s":2,"m":"Rapha is a cycling clothing brand"},{"k":"f","s":1,"m":"Rapha products are overpriced for what they are"},{"k":"a","s":1,"m":"Rapha is still an independent brand"}]},{"n":"Redis","c":[{"k":"f","s":2,"m":"Redis is just a cache"},{"k":"a","s":3,"m":"Redis is still open source under BSD license"},{"k":"f","s":1,"m":"Redis is only for small, ephemeral data because it's in-memory"}]},{"n":"REI","c":[{"k":"f","s":2,"m":"REI is an outdoor retail chain like Bass Pro Shops or Dick's Sporting Goods"},{"k":"f","s":2,"m":"REI's #OptOutside Black Friday closure is a marketing campaign"},{"k":"a","s":2,"m":"REI has always had smooth labor relations consistent with its values"}]},{"n":"Render","c":[{"k":"f","s":2,"m":"Render is just another Heroku clone"},{"k":"f","s":1,"m":"PaaS platforms can't handle production workloads"},{"k":"a","s":0,"m":"Render's free tier is too limited to be useful"}]},{"n":"Resend","c":[{"k":"f","s":2,"m":"Resend is just another SendGrid or Mailgun clone"},{"k":"f","s":1,"m":"Resend is too new to trust for production email"},{"k":"a","s":1,"m":"You need Resend to use React Email"}]},{"n":"Sanity","c":[{"k":"f","s":2,"m":"Sanity is just another Contentful competitor"},{"k":"f","s":1,"m":"Headless CMS means developers build everything — editors can't do anything"},{"k":"a","s":1,"m":"GROQ is a barrier — why not use standard GraphQL?"}]},{"n":"Segment","c":[{"k":"f","s":2,"m":"Segment is an analytics tool like Mixpanel or Amplitude"},{"k":"a","s":1,"m":"Segment is too expensive for startups"},{"k":"f","s":1,"m":"You can build your own event tracking — Segment just saves time"}]},{"n":"Sentry","c":[{"k":"f","s":2,"m":"Sentry is just an error logging tool like logging to a file"},{"k":"a","s":1,"m":"Sentry is only for JavaScript/frontend applications"},{"k":"f","s":1,"m":"Sentry replaces your logging infrastructure (ELK, Datadog Logs)"}]},{"n":"Slack","c":[{"k":"f","s":2,"m":"Slack is just a chat app — a glorified IRC or group text"},{"k":"f","s":2,"m":"Slack is being replaced by Microsoft Teams because Teams is free with Office 365"},{"k":"a","s":1,"m":"Slack is too expensive for small teams"}]},{"n":"Tableau","c":[{"k":"f","s":2,"m":"Tableau is just fancy charts — you can do the same in Excel"},{"k":"f","s":1,"m":"Tableau is being replaced by Looker or Power BI"},{"k":"a","s":1,"m":"Tableau requires a data warehouse — you need Snowflake or BigQuery first"}]},{"n":"Tailscale","c":[{"k":"f","s":2,"m":"Tailscale is a traditional VPN like NordVPN or ExpressVPN"},{"k":"a","s":1,"m":"Tailscale requires a central server or VPN gateway"},{"k":"f","s":1,"m":"Tailscale is only useful for remote work VPN access"}]},{"n":"Terraform","c":[{"k":"a","s":3,"m":"Terraform is still open source under MPL"},{"k":"f","s":2,"m":"Terraform is the only option for Infrastructure as Code"},{"k":"f","s":2,"m":"You should migrate away from Terraform because of the license change"}]},{"n":"Tony's Chocolonely","c":[{"k":"f","s":2,"m":"Tony's Chocolonely is a fun, colorful chocolate brand with ethical sourcing"},{"k":"f","s":2,"m":"Tony's Chocolonely claims to be 100% slave-free"},{"k":"a","s":2,"m":"Tony's lost its Fairtrade certification due to ethical violations"}]},{"n":"Typeform","c":[{"k":"f","s":2,"m":"Typeform is just Google Forms with better design"},{"k":"a","s":1,"m":"Typeform's free tier is enough for most needs"},{"k":"f","s":1,"m":"All form builders produce similar results"}]},{"n":"Webflow","c":[{"k":"f","s":2,"m":"Webflow is like Wix or Squarespace — a basic website builder"},{"k":"f","s":1,"m":"Webflow sites are slow because they're no-code"},{"k":"a","s":1,"m":"You can't add custom code in Webflow"}]},{"n":"WordPress","c":[{"k":"f","s":2,"m":"WordPress is only for blogs"},{"k":"f","s":2,"m":"WordPress is insecure"},{"k":"a","s":2,"m":"WordPress.org and WordPress.com are the same thing"}]},{"n":"YETI","c":[{"k":"f","s":2,"m":"YETI sells overpriced coolers"},{"k":"a","s":1,"m":"YETI is primarily a cooler company"},{"k":"f","s":1,"m":"The YETI phenomenon is just about a Stanley Cup-style trend"}]},{"n":"Zoom","c":[{"k":"f","s":2,"m":"Zoom is just video meetings — Google Meet or Teams do the same thing"},{"k":"f","s":2,"m":"Zoom's relevance peaked during COVID — it's declining"},{"k":"a","s":1,"m":"Zoom is insecure — it had major security issues"}]},{"n":"Cloudflare","c":[{"k":"f","s":2,"m":"Cloudflare is just a CDN"},{"k":"f","s":1,"m":"The free tier is a loss leader that will be taken away"},{"k":"a","s":1,"m":"Cloudflare Workers are limited compared to traditional serverless (Lambda, etc.)"},{"k":"a","s":1,"m":"Cloudflare sees and can read all traffic it proxies"}]},{"n":"Dr. Martens","c":[{"k":"f","s":2,"m":"Dr. Martens is a punk/alternative fashion brand"},{"k":"a","s":1,"m":"Dr. Martens is a British brand"},{"k":"a","s":2,"m":"Dr. Martens boots are all still made in England"},{"k":"f","s":1,"m":"Dr. Martens is an affordable working-class boot brand"}]},{"n":"Figma","c":[{"k":"f","s":2,"m":"Figma is a Sketch clone that just runs in the browser"},{"k":"a","s":1,"m":"Browser-based means slower or less capable than native design tools"},{"k":"f","s":1,"m":"Figma is only for UI/UX designers"},{"k":"a","s":1,"m":"The Adobe acquisition will make Figma worse"}]},{"n":"MongoDB","c":[{"k":"a","s":3,"m":"MongoDB doesn't support transactions or ACID compliance"},{"k":"f","s":2,"m":"MongoDB is only for prototyping or simple applications, not production workloads"},{"k":"f","s":2,"m":"You should always use PostgreSQL instead of MongoDB"},{"k":"a","s":2,"m":"MongoDB loses data or is unreliable"}]},{"n":"Notion","c":[{"k":"f","s":2,"m":"Notion is just a note-taking app like Evernote or Apple Notes"},{"k":"a","s":1,"m":"Notion is too slow for serious use"},{"k":"a","s":1,"m":"Notion cannot work offline"},{"k":"f","s":1,"m":"Notion is only for small teams or personal use"}]},{"n":"Oatly","c":[{"k":"f","s":2,"m":"Oatly is a health food brand that makes oat milk"},{"k":"a","s":1,"m":"Oatly is a recent plant-milk startup riding the trend"},{"k":"f","s":2,"m":"Oatly's communication style is just quirky marketing"},{"k":"a","s":2,"m":"Oatly has faced no significant controversies"}]},{"n":"Shopify","c":[{"k":"f","s":2,"m":"Shopify is only for small businesses and dropshippers"},{"k":"f","s":1,"m":"Shopify is too expensive compared to WooCommerce or self-hosted solutions"},{"k":"a","s":1,"m":"Shopify stores all look the same"},{"k":"a","s":1,"m":"You can't do B2B or wholesale on Shopify"}]},{"n":"Stripe","c":[{"k":"f","s":2,"m":"Stripe is just a payment processor like PayPal or Square"},{"k":"a","s":2,"m":"Stripe is only for developers and requires coding to use"},{"k":"f","s":1,"m":"Stripe is more expensive than alternatives"},{"k":"a","s":1,"m":"Stripe is only for online businesses"}]},{"n":"Supabase","c":[{"k":"f","s":2,"m":"Supabase is just a Firebase clone"},{"k":"a","s":2,"m":"Supabase is a proprietary cloud service"},{"k":"a","s":1,"m":"Supabase cannot handle complex queries or joins"},{"k":"f","s":1,"m":"Supabase is only for small projects or prototypes"}]},{"n":"Tailwind CSS","c":[{"k":"f","s":2,"m":"Tailwind CSS is just inline styles with extra steps"},{"k":"a","s":2,"m":"Tailwind CSS produces bloated CSS output"},{"k":"f","s":1,"m":"Tailwind CSS makes HTML unreadable with too many classes"},{"k":"a","s":1,"m":"Tailwind CSS cannot handle complex or custom designs"}]},{"n":"Vercel","c":[{"k":"f","s":2,"m":"Vercel is just a hosting provider like Netlify or GitHub Pages"},{"k":"a","s":2,"m":"Vercel only works with Next.js"},{"k":"f","s":1,"m":"Vercel is too expensive for production workloads"},{"k":"a","s":1,"m":"Vercel creates vendor lock-in through Next.js"}]},{"n":"Linear","c":[{"k":"f","s":2,"m":"Linear is just another Jira alternative"},{"k":"a","s":1,"m":"Linear only works for small teams and doesn't scale to enterprise"},{"k":"a","s":1,"m":"Linear lacks integrations compared to Jira"}]},{"n":"OpenAI","c":[{"k":"a","s":3,"m":"OpenAI is a nonprofit focused on open research"},{"k":"a","s":1,"m":"ChatGPT and GPT-4 are the same thing"},{"k":"f","s":2,"m":"OpenAI models are always the best — GPT-4 is the gold standard"}]},{"n":"Bun","c":[{"k":"f","s":2,"m":"Bun is just a faster Node.js"},{"k":"a","s":2,"m":"Bun has poor Node.js compatibility and can't run existing projects"},{"k":"a","s":1,"m":"Bun only works on macOS and Linux"},{"k":"a","s":1,"m":"Bun uses V8 like Node.js"}]},{"n":"htmx","c":[{"k":"a","s":2,"m":"htmx is a JavaScript framework like React or Vue"},{"k":"f","s":2,"m":"htmx is only for simple websites or prototypes"},{"k":"a","s":1,"m":"htmx requires a specific backend framework"},{"k":"a","s":1,"m":"htmx cannot do complex interactive UIs"}]},{"n":"SQLite","c":[{"k":"f","s":2,"m":"SQLite is only suitable for small, toy projects or prototyping"},{"k":"a","s":2,"m":"SQLite cannot handle concurrent access"},{"k":"a","s":1,"m":"SQLite is a client-server database like MySQL or PostgreSQL"},{"k":"a","s":1,"m":"SQLite does not support JSON"}]}]
+;
+
+const grid = document.getElementById('grid');
+const tooltip = document.getElementById('tooltip');
+
+DATA.forEach(brand => {
+  const col = document.createElement('div');
+  col.className = 'brand';
+
+  // Sort corrections: highest severity first
+  const sorted = [...brand.c].sort((a, b) => b.s - a.s);
+
+  sorted.forEach(corr => {
+    const block = document.createElement('div');
+    block.className = `correction ${corr.k === 'f' ? 'framing' : 'factual'} sev-${corr.s}`;
+    col.appendChild(block);
+  });
+
+  col.addEventListener('mouseenter', (e) => {
+    let html = `<div class="brand-name">${brand.n}</div>`;
+    sorted.forEach(corr => {
+      const kind = corr.k === 'f' ? 'framing' : 'factual';
+      const sev = ['low', 'medium', 'high', 'critical'][corr.s];
+      html += `<div class="misconception ${kind}">${sev}: ${corr.m}</div>`;
+    });
+    tooltip.innerHTML = html;
+    tooltip.classList.add('visible');
+  });
+
+  col.addEventListener('mousemove', (e) => {
+    const x = e.clientX + 15;
+    const y = e.clientY - 10;
+    const rect = tooltip.getBoundingClientRect();
+    tooltip.style.left = (x + rect.width > window.innerWidth ? e.clientX - rect.width - 15 : x) + 'px';
+    tooltip.style.top = (y + rect.height > window.innerHeight ? window.innerHeight - rect.height - 10 : y) + 'px';
+  });
+
+  col.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+
+  grid.appendChild(col);
+});
+</script>
+</body>
+</html>
