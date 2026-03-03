@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Refraction — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="AI doesn't lie about brands. It reframes them. 77.8% of distortion is tonal, not factual.">
+<meta property="og:title" content="Refraction — Vael">
+<meta property="og:description" content="AI doesn't lie about brands. It reframes them. 77.8% of distortion is tonal, not factual.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 4s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.stats { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.65rem/1 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.05em; text-align: right; line-height: 1.6; }
+.info { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.6rem/1 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.05em; text-align: right; line-height: 1.8; max-width: 220px; transition: color 0.5s; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">light enters as truth<br>it exits as framing</div>
+<div class="label">refraction</div>
+<div class="stats" id="stats"></div>
+<div class="info" id="info"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const statsEl = document.getElementById('stats');
+const infoEl = document.getElementById('info');
+
+let W, H;
+let time = 0;
+let mouseX = -1, mouseY = -1;
+let hintVisible = true;
+let selectedBrand = -1;
+
+// Real data from Prismo live verification scans
+const brands = [
+  { name: 'Algolia', category: 'Search', visibility: 63, accuracy: 38, framing: 2, factual: 1, total: 3 },
+  { name: 'Auth0', category: 'Identity', visibility: 44, accuracy: 40, framing: 2, factual: 1, total: 3 },
+  { name: 'Dyson', category: 'Engineering', visibility: 39, accuracy: 30, framing: 2, factual: 0, total: 2 },
+  { name: 'IKEA', category: 'Furnishing', visibility: 63, accuracy: 27, framing: 3, factual: 1, total: 4 },
+  { name: 'Impossible Foods', category: 'Food Science', visibility: 46, accuracy: 32, framing: 2, factual: 1, total: 3 },
+  { name: 'LEGO', category: 'Creative', visibility: 44, accuracy: 16, framing: 3, factual: 0, total: 3 },
+];
+
+const totalFraming = brands.reduce((s, b) => s + b.framing, 0);
+const totalFactual = brands.reduce((s, b) => s + b.factual, 0);
+const framingRatio = totalFraming / (totalFraming + totalFactual);
+
+// Prism geometry
+let prismCx, prismCy, prismSize;
+
+// Beams
+const beams = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  prismCx = W * 0.5;
+  prismCy = H * 0.5;
+  prismSize = Math.min(W, H) * 0.18;
+  initBeams();
+}
+
+function initBeams() {
+  beams.length = 0;
+  const entrySpacing = prismSize * 1.4 / brands.length;
+  const startY = prismCy - (brands.length - 1) * entrySpacing / 2;
+
+  for (let i = 0; i < brands.length; i++) {
+    const brand = brands[i];
+    const entryY = startY + i * entrySpacing;
+
+    // Entry point on left face of prism
+    const entryX = prismCx - prismSize * 0.6;
+
+    // Base hue: amber/gold spectrum, 30-50 degrees
+    const baseHue = 35 + i * 5;
+
+    // Framing creates angular deviation, factual creates color shift
+    const framingAngle = brand.framing * 8 + Math.random() * 3;
+    const factualShift = brand.factual * 25;
+
+    // Each misrepresentation becomes a sub-beam
+    const subBeams = [];
+    for (let f = 0; f < brand.framing; f++) {
+      subBeams.push({
+        type: 'framing',
+        angle: (f + 1) * framingAngle / brand.framing * (f % 2 === 0 ? 1 : -1) * 0.7,
+        hueShift: 0, // framing doesn't change the "color" of truth
+        alpha: 0.6,
+      });
+    }
+    for (let f = 0; f < brand.factual; f++) {
+      subBeams.push({
+        type: 'factual',
+        angle: (f + 1) * 5,
+        hueShift: factualShift + f * 15, // factual errors change the color
+        alpha: 0.8,
+      });
+    }
+
+    beams.push({
+      brand,
+      entryX,
+      entryY,
+      baseHue,
+      subBeams,
+      particles: [],
+      hover: false,
+    });
+  }
+}
+
+// Prism shape (triangle)
+function drawPrism(alpha) {
+  const s = prismSize;
+  ctx.beginPath();
+  ctx.moveTo(prismCx, prismCy - s);
+  ctx.lineTo(prismCx + s * 0.866, prismCy + s * 0.5);
+  ctx.lineTo(prismCx - s * 0.866, prismCy + s * 0.5);
+  ctx.closePath();
+  ctx.strokeStyle = `rgba(200, 170, 80, ${alpha * 0.15})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Subtle fill
+  const grad = ctx.createLinearGradient(prismCx - s, prismCy - s, prismCx + s, prismCy + s);
+  grad.addColorStop(0, `rgba(200, 170, 80, ${alpha * 0.02})`);
+  grad.addColorStop(1, `rgba(200, 170, 80, ${alpha * 0.04})`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// Particles for beam scatter
+function spawnParticle(beam, x, y, hue, type) {
+  beam.particles.push({
+    x, y,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3,
+    life: 1,
+    decay: 0.005 + Math.random() * 0.005,
+    hue,
+    type,
+    size: 1 + Math.random() * 1.5,
+  });
+}
+
+function drawBeam(beam, t) {
+  const { entryX, entryY, baseHue, subBeams, brand } = beam;
+
+  // Incoming beam — straight, pure amber
+  const incomingStartX = 0;
+  const incomingEndX = prismCx - prismSize * 0.4;
+
+  const inAlpha = beam.hover ? 0.7 : 0.25;
+
+  // Pulsing entry beam
+  const pulse = 0.8 + 0.2 * Math.sin(t * 0.02 + beams.indexOf(beam));
+  ctx.beginPath();
+  ctx.moveTo(incomingStartX, entryY);
+  ctx.lineTo(incomingEndX, entryY);
+  const inGrad = ctx.createLinearGradient(incomingStartX, 0, incomingEndX, 0);
+  inGrad.addColorStop(0, `hsla(${baseHue}, 80%, 60%, 0)`);
+  inGrad.addColorStop(0.3, `hsla(${baseHue}, 80%, 60%, ${inAlpha * pulse * 0.3})`);
+  inGrad.addColorStop(1, `hsla(${baseHue}, 80%, 60%, ${inAlpha * pulse})`);
+  ctx.strokeStyle = inGrad;
+  ctx.lineWidth = beam.hover ? 2.5 : 1.5;
+  ctx.stroke();
+
+  // Glow
+  ctx.beginPath();
+  ctx.moveTo(incomingStartX, entryY);
+  ctx.lineTo(incomingEndX, entryY);
+  ctx.strokeStyle = `hsla(${baseHue}, 80%, 60%, ${inAlpha * pulse * 0.1})`;
+  ctx.lineWidth = beam.hover ? 8 : 4;
+  ctx.stroke();
+
+  // Refracted beams exit right side
+  const exitX = prismCx + prismSize * 0.4;
+  const beamLength = W - exitX;
+
+  for (const sub of subBeams) {
+    const exitHue = baseHue + sub.hueShift;
+    const angleRad = (sub.angle * Math.PI) / 180;
+    const endX = exitX + beamLength;
+    const endY = entryY + Math.tan(angleRad) * beamLength;
+
+    const outAlpha = beam.hover ? sub.alpha * 1.2 : sub.alpha * 0.35;
+
+    // Color: framing stays amber, factual shifts to red
+    const color = sub.type === 'framing'
+      ? `hsla(${baseHue}, 70%, 55%, ${outAlpha * pulse})`
+      : `hsla(${exitHue > 360 ? exitHue - 360 : exitHue}, 60%, 45%, ${outAlpha * pulse})`;
+
+    const fadeColor = sub.type === 'framing'
+      ? `hsla(${baseHue}, 70%, 55%, 0)`
+      : `hsla(${exitHue > 360 ? exitHue - 360 : exitHue}, 60%, 45%, 0)`;
+
+    ctx.beginPath();
+    ctx.moveTo(exitX, entryY);
+    ctx.lineTo(endX, endY);
+
+    const outGrad = ctx.createLinearGradient(exitX, 0, endX, 0);
+    outGrad.addColorStop(0, color);
+    outGrad.addColorStop(0.7, color);
+    outGrad.addColorStop(1, fadeColor);
+    ctx.strokeStyle = outGrad;
+    ctx.lineWidth = sub.type === 'factual' ? (beam.hover ? 2 : 1.2) : (beam.hover ? 1.8 : 1);
+    ctx.stroke();
+
+    // Glow for refracted
+    ctx.beginPath();
+    ctx.moveTo(exitX, entryY);
+    ctx.lineTo(endX, endY);
+    ctx.strokeStyle = sub.type === 'framing'
+      ? `hsla(${baseHue}, 70%, 55%, ${outAlpha * pulse * 0.05})`
+      : `hsla(${exitHue > 360 ? exitHue - 360 : exitHue}, 60%, 45%, ${outAlpha * pulse * 0.08})`;
+    ctx.lineWidth = beam.hover ? 10 : 6;
+    ctx.stroke();
+
+    // Scatter particles at exit point
+    if (Math.random() < 0.03 * (beam.hover ? 3 : 1)) {
+      spawnParticle(beam, exitX + Math.random() * 20, entryY + Math.random() * 10 - 5,
+        sub.type === 'factual' ? exitHue : baseHue, sub.type);
+    }
+  }
+
+  // Brand label on the left
+  if (beam.hover) {
+    ctx.font = '300 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = `hsla(${baseHue}, 60%, 60%, 0.7)`;
+    ctx.textAlign = 'right';
+    ctx.fillText(brand.name, incomingEndX - 15, entryY - 8);
+    ctx.font = '300 9px "JetBrains Mono", monospace';
+    ctx.fillStyle = `hsla(${baseHue}, 40%, 50%, 0.4)`;
+    ctx.fillText(brand.category, incomingEndX - 15, entryY + 12);
+  }
+
+  // Update particles
+  for (let i = beam.particles.length - 1; i >= 0; i--) {
+    const p = beam.particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+
+    if (p.life <= 0) {
+      beam.particles.splice(i, 1);
+      continue;
+    }
+
+    const pColor = p.type === 'framing'
+      ? `hsla(${p.hue}, 70%, 60%, ${p.life * 0.4})`
+      : `hsla(${p.hue}, 60%, 50%, ${p.life * 0.6})`;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fillStyle = pColor;
+    ctx.fill();
+  }
+}
+
+function checkHover() {
+  for (const beam of beams) {
+    const dy = Math.abs(mouseY - beam.entryY);
+    const inRange = mouseX < prismCx + prismSize;
+    beam.hover = dy < 15 && inRange;
+  }
+
+  // Find hovered brand for info panel
+  const hovered = beams.find(b => b.hover);
+  if (hovered) {
+    const b = hovered.brand;
+    infoEl.style.color = '#333';
+    infoEl.textContent = `${b.name}\nvisibility: ${b.visibility}/100\naccuracy: ${b.accuracy}/100\nframing distortions: ${b.framing}\nfactual errors: ${b.factual}`;
+    infoEl.style.whiteSpace = 'pre';
+  } else {
+    infoEl.style.color = '#1a1a1a';
+  }
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  time++;
+
+  // Fade hint
+  if (hintVisible && time > 200) {
+    hintEl.style.opacity = '0';
+    hintVisible = false;
+  }
+
+  checkHover();
+
+  // Draw prism
+  const prismAlpha = 0.6 + 0.2 * Math.sin(time * 0.01);
+  drawPrism(prismAlpha);
+
+  // Internal refraction lines inside prism
+  const s = prismSize;
+  for (let i = 0; i < 5; i++) {
+    const y = prismCy - s * 0.3 + i * s * 0.2;
+    const xRange = s * 0.3 * (1 - Math.abs(y - prismCy) / s);
+    ctx.beginPath();
+    ctx.moveTo(prismCx - xRange, y);
+    ctx.lineTo(prismCx + xRange, y);
+    ctx.strokeStyle = `rgba(200, 170, 80, ${0.02 + 0.01 * Math.sin(time * 0.02 + i)})`;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // Draw all beams
+  for (const beam of beams) {
+    drawBeam(beam, time);
+  }
+
+  // Stats
+  statsEl.textContent = `${brands.length} brands scanned\n${totalFraming + totalFactual} distortions found\n${(framingRatio * 100).toFixed(1)}% framing`;
+  statsEl.style.whiteSpace = 'pre';
+
+  requestAnimationFrame(draw);
+}
+
+// Mouse interaction
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+canvas.addEventListener('click', (e) => {
+  // Clicking near the prism rotates the data view
+  const dx = e.clientX - prismCx;
+  const dy = e.clientY - prismCy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < prismSize * 1.5) {
+    // Shuffle beam order for different perspective
+    const first = brands.shift();
+    brands.push(first);
+    initBeams();
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  mouseX = -1;
+  mouseY = -1;
+});
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+
+  const dx = t.clientX - prismCx;
+  const dy = t.clientY - prismCy;
+  if (Math.sqrt(dx * dx + dy * dy) < prismSize * 1.5) {
+    const first = brands.shift();
+    brands.push(first);
+    initBeams();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  mouseX = -1;
+  mouseY = -1;
+});
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+</script>
+</body>
+</html>
