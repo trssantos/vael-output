@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Drift — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Tones that forget where they started.">
+<meta property="og:title" content="Drift — Vael">
+<meta property="og:description" content="Tones that forget where they started.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">click to begin<br>each click adds a voice</div>
+<div class="label">drift</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+
+let W, H;
+let audioCtx = null;
+let started = false;
+
+// Voices — each is an oscillator that drifts
+const voices = [];
+const MAX_VOICES = 12;
+
+// Pentatonic-ish base frequencies (C, D, E, G, A across octaves)
+const SCALE = [
+  130.81, 146.83, 164.81, 196.00, 220.00,
+  261.63, 293.66, 329.63, 392.00, 440.00,
+  523.25, 587.33, 659.26, 783.99, 880.00
+];
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function initAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function addVoice(x, y) {
+  if (!audioCtx) initAudio();
+
+  // Map position to frequency
+  const freqIdx = Math.floor((x / W) * SCALE.length);
+  const baseFreq = SCALE[Math.min(freqIdx, SCALE.length - 1)];
+
+  // Drift rate from y position — top = slow drift, bottom = fast
+  const driftRate = 0.02 + (y / H) * 0.15;
+
+  // Create oscillator
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const panner = audioCtx.createStereoPanner();
+
+  osc.type = 'sine';
+  osc.frequency.value = baseFreq;
+
+  // Gentle volume
+  const vol = 0.08 / Math.max(1, voices.length * 0.5);
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.5);
+
+  // Stereo position from x
+  panner.pan.value = (x / W) * 2 - 1;
+
+  osc.connect(gain);
+  gain.connect(panner);
+  panner.connect(audioCtx.destination);
+  osc.start();
+
+  const voice = {
+    osc, gain, panner,
+    x, y,
+    baseFreq,
+    currentFreq: baseFreq,
+    driftRate,
+    driftPhase: Math.random() * Math.PI * 2,
+    age: 0,
+    maxAge: 30 + Math.random() * 60, // 30-90 seconds
+    pan: (x / W) * 2 - 1
+  };
+
+  voices.push(voice);
+
+  // Remove oldest if too many
+  if (voices.length > MAX_VOICES) {
+    const old = voices.shift();
+    old.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+    setTimeout(() => { old.osc.stop(); }, 2500);
+  }
+
+  updateInfo();
+}
+
+function updateVoices(dt) {
+  if (!audioCtx) return;
+
+  for (let i = voices.length - 1; i >= 0; i--) {
+    const v = voices[i];
+    v.age += dt;
+    v.driftPhase += v.driftRate * dt;
+
+    // Frequency drifts — slow random walk biased by neighbors
+    let neighborPull = 0;
+    for (let j = 0; j < voices.length; j++) {
+      if (j === i) continue;
+      const other = voices[j];
+      const freqRatio = other.currentFreq / v.currentFreq;
+      // Pull toward simple ratios (octave, fifth, fourth)
+      const targets = [1, 2, 0.5, 1.5, 0.667, 1.333];
+      let minDist = Infinity;
+      for (const t of targets) {
+        const d = Math.abs(freqRatio - t);
+        if (d < minDist) minDist = d;
+      }
+      // Weak pull if close to consonance
+      if (minDist < 0.1) {
+        neighborPull += (minDist > 0.01 ? -minDist : minDist) * 0.3;
+      }
+    }
+
+    // Drift: brownian walk + consonance pull
+    const drift = Math.sin(v.driftPhase) * v.driftRate * 2 + neighborPull;
+    v.currentFreq *= (1 + drift * 0.001);
+
+    // Soft bounds — don't drift too far from base
+    const ratio = v.currentFreq / v.baseFreq;
+    if (ratio > 2.5) v.currentFreq *= 0.999;
+    if (ratio < 0.4) v.currentFreq *= 1.001;
+
+    v.osc.frequency.value = v.currentFreq;
+
+    // Pan drifts slowly too
+    v.pan += (Math.random() - 0.5) * 0.002;
+    v.pan = Math.max(-1, Math.min(1, v.pan));
+    v.panner.pan.value = v.pan;
+
+    // Fade out as voice ages
+    const life = v.age / v.maxAge;
+    if (life > 0.7) {
+      const fade = 1 - (life - 0.7) / 0.3;
+      const vol = (0.08 / Math.max(1, voices.length * 0.5)) * fade;
+      v.gain.gain.linearRampToValueAtTime(Math.max(0, vol), audioCtx.currentTime + 0.1);
+    }
+
+    // Remove dead voices
+    if (v.age > v.maxAge) {
+      v.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+      setTimeout(() => { v.osc.stop(); }, 1500);
+      voices.splice(i, 1);
+      updateInfo();
+    }
+  }
+}
+
+function updateInfo() {
+  if (voices.length === 0) {
+    infoEl.textContent = '';
+    return;
+  }
+  const freqs = voices.map(v => Math.round(v.currentFreq));
+  infoEl.textContent = freqs.join(' · ') + ' Hz';
+}
+
+// Rendering — each voice is a breathing circle
+function render() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  for (const v of voices) {
+    const life = v.age / v.maxAge;
+    const alpha = life < 0.1 ? life / 0.1 : life > 0.7 ? (1 - life) / 0.3 : 1;
+
+    // Position drifts with the sound
+    const driftX = Math.sin(v.driftPhase * 0.7) * 30;
+    const driftY = Math.cos(v.driftPhase * 0.5) * 20;
+    const x = v.x + driftX;
+    const y = v.y + driftY;
+
+    // Size pulses with frequency
+    const pulse = Math.sin(v.age * v.currentFreq * 0.01) * 0.3 + 1;
+    const baseRadius = 20 + (1 - v.currentFreq / 880) * 40;
+    const radius = baseRadius * pulse;
+
+    // Color from frequency — low = warm, high = cool
+    const freqNorm = Math.log2(v.currentFreq / 130.81) / Math.log2(880 / 130.81);
+    const r = Math.floor(200 - freqNorm * 150);
+    const g = Math.floor(150 + freqNorm * 50);
+    const b = Math.floor(80 + freqNorm * 150);
+
+    // Glow
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 3);
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`);
+    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${alpha * 0.15})`);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 3, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.8})`;
+    ctx.fill();
+  }
+}
+
+// Interaction
+function handleClick(px, py) {
+  if (!started) {
+    hintEl.style.opacity = '0';
+    started = true;
+  }
+  addVoice(px, py);
+}
+
+canvas.addEventListener('click', (e) => handleClick(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  handleClick(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+// Main loop
+let lastTime = 0;
+function frame(t) {
+  const dt = lastTime ? (t - lastTime) / 1000 : 0.016;
+  lastTime = t;
+
+  updateVoices(dt);
+  render();
+
+  // Update frequency display periodically
+  if (Math.floor(t / 500) !== Math.floor((t - dt * 1000) / 500)) {
+    updateInfo();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+window.addEventListener('resize', resize);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
