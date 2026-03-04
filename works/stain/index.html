@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stain — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="You only see what you stain for. Click to choose a lens. Watch what appears — and what vanishes.">
+<meta property="og:title" content="Stain — Vael">
+<meta property="og:description" content="You only see what you stain for. Click to choose a lens. Watch what appears — and what vanishes.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: default; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.lenses { position: fixed; top: 50%; right: 2rem; transform: translateY(-50%); z-index: 10; display: flex; flex-direction: column; gap: 0.6rem; }
+.lens-btn { background: none; border: 1px solid #222; color: #333; font: 300 0.6rem/1 'JetBrains Mono', monospace; letter-spacing: 0.08em; padding: 0.4rem 0.7rem; cursor: pointer; transition: all 0.5s ease; text-align: left; min-width: 5rem; }
+.lens-btn:hover { border-color: #444; color: #555; }
+.lens-btn.active { border-color: var(--lens-color); color: var(--lens-color); }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 4s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.stats { position: fixed; bottom: 1.5rem; right: 2rem; z-index: 10; font: 300 0.6rem/1 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.05em; text-align: right; line-height: 1.6; transition: color 0.5s ease; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">choose a lens</div>
+<div class="label">stain</div>
+<div class="lenses" id="lenses"></div>
+<div class="stats" id="stats"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const lensContainer = document.getElementById('lenses');
+const statsEl = document.getElementById('stats');
+const hint = document.getElementById('hint');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+setTimeout(() => { hint.style.opacity = '0'; }, 3000);
+setTimeout(() => { hint.style.display = 'none'; }, 7000);
+
+// Each entity has multiple properties — but each lens only reveals one
+const LENSES = [
+  { name: 'structure', color: [140, 180, 220], prop: 'structure' },
+  { name: 'energy',    color: [220, 160, 80],  prop: 'energy' },
+  { name: 'age',       color: [180, 100, 160], prop: 'age' },
+  { name: 'motion',    color: [100, 200, 140], prop: 'motion' },
+  { name: 'none',      color: [60, 60, 60],    prop: null },
+];
+
+let activeLens = 4; // Start with 'none'
+
+// Create lens buttons
+LENSES.forEach((lens, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'lens-btn';
+  btn.textContent = lens.name;
+  btn.style.setProperty('--lens-color', `rgb(${lens.color.join(',')})`);
+  if (i === activeLens) btn.classList.add('active');
+  btn.addEventListener('click', () => {
+    activeLens = i;
+    document.querySelectorAll('.lens-btn').forEach((b, j) => {
+      b.classList.toggle('active', j === i);
+    });
+  });
+  lensContainer.appendChild(btn);
+});
+
+// Entities — each has all properties but the lens determines visibility
+const entities = [];
+const COUNT = 300;
+
+for (let i = 0; i < COUNT; i++) {
+  // Position in a field — clustered loosely
+  const cx = W * 0.5 + (Math.random() - 0.5) * W * 0.6;
+  const cy = H * 0.5 + (Math.random() - 0.5) * H * 0.6;
+
+  entities.push({
+    x: cx,
+    y: cy,
+    baseX: cx,
+    baseY: cy,
+    // Properties — each ranges 0-1
+    structure: Math.random(),
+    energy: Math.random(),
+    age: Math.random(),
+    motion: Math.random(),
+    // Visual
+    size: 2 + Math.random() * 6,
+    phase: Math.random() * Math.PI * 2,
+    wanderAngle: Math.random() * Math.PI * 2,
+    wanderSpeed: 0.1 + Math.random() * 0.4,
+  });
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+let prevLens = activeLens;
+let lensTransition = 1;
+
+function animate() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  if (prevLens !== activeLens) {
+    prevLens = activeLens;
+    lensTransition = 0;
+  }
+  lensTransition = Math.min(1, lensTransition + 0.02);
+
+  const lens = LENSES[activeLens];
+  let visible = 0;
+  let invisible = 0;
+  let totalValue = 0;
+
+  for (const e of entities) {
+    // Gentle wandering
+    e.wanderAngle += (Math.random() - 0.5) * 0.05;
+    e.x += Math.cos(e.wanderAngle) * e.wanderSpeed;
+    e.y += Math.sin(e.wanderAngle) * e.wanderSpeed;
+
+    // Soft return to base
+    e.x += (e.baseX - e.x) * 0.003;
+    e.y += (e.baseY - e.y) * 0.003;
+
+    e.phase += 0.01 + e.energy * 0.02;
+
+    // Determine visibility based on active lens
+    let value, opacity, r, g, b, size;
+
+    if (lens.prop === null) {
+      // 'none' lens — everything is dim, uniform
+      value = 0.5;
+      opacity = 0.06;
+      r = 60; g = 60; b = 60;
+      size = e.size * 0.7;
+    } else {
+      value = e[lens.prop];
+      // High value = bright and visible, low = nearly invisible
+      const threshold = 0.3;
+      if (value > threshold) {
+        visible++;
+        opacity = lerp(0.05, 0.7, (value - threshold) / (1 - threshold));
+        opacity *= lerp(0, 1, lensTransition);
+        r = lens.color[0];
+        g = lens.color[1];
+        b = lens.color[2];
+        size = e.size * lerp(0.5, 1.2, value);
+        totalValue += value;
+      } else {
+        invisible++;
+        opacity = 0.02 * lensTransition + 0.04 * (1 - lensTransition);
+        r = 40; g = 40; b = 40;
+        size = e.size * 0.5;
+      }
+
+      // Pulse for high-value entities
+      if (value > 0.7) {
+        const pulse = 0.5 + 0.5 * Math.sin(e.phase);
+        size += pulse * 2;
+        opacity += pulse * 0.1;
+      }
+    }
+
+    // Draw
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    ctx.fill();
+
+    // Glow for bright entities
+    if (opacity > 0.3) {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, size + 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity * 0.12})`;
+      ctx.fill();
+    }
+  }
+
+  // Draw faint connections between entities with high values in current lens
+  if (lens.prop !== null) {
+    ctx.lineWidth = 0.3;
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i][lens.prop] < 0.6) continue;
+      for (let j = i + 1; j < entities.length; j++) {
+        if (entities[j][lens.prop] < 0.6) continue;
+        const dx = entities[i].x - entities[j].x;
+        const dy = entities[i].y - entities[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          const alpha = (1 - dist / 120) * 0.08 * lensTransition;
+          ctx.beginPath();
+          ctx.moveTo(entities[i].x, entities[i].y);
+          ctx.lineTo(entities[j].x, entities[j].y);
+          ctx.strokeStyle = `rgba(${lens.color.join(',')}, ${alpha})`;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Stats
+  if (lens.prop !== null) {
+    const pct = Math.round(visible / COUNT * 100);
+    statsEl.style.color = `rgba(${lens.color.join(',')}, 0.4)`;
+    statsEl.innerHTML =
+      `visible: ${visible}<br>` +
+      `hidden: ${invisible}<br>` +
+      `${pct}% of the field`;
+  } else {
+    statsEl.style.color = '#1a1a1a';
+    statsEl.innerHTML = `${COUNT} entities<br>4 properties each<br>no lens active`;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
