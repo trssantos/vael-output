@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Twist — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Three forces compete. One angle creates order.">
+<meta property="og:title" content="Twist — Vael">
+<meta property="og:description" content="Three forces compete. One angle creates order.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; image-rendering: pixelated; image-rendering: crisp-edges; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.controls { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; display: flex; align-items: center; gap: 0.75rem; font: 300 0.65rem/1 'JetBrains Mono', monospace; color: #333; letter-spacing: 0.05em; }
+.controls input[type="range"] { -webkit-appearance: none; appearance: none; width: 160px; height: 2px; background: #1a1a1a; outline: none; border-radius: 1px; }
+.controls input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #444; cursor: pointer; }
+.controls input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #444; cursor: pointer; border: none; }
+.angle { color: #555; min-width: 2.5em; text-align: right; }
+.forces { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.6rem/1.6 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; transition: color 0.5s; }
+.marker { position: fixed; bottom: 2.7rem; z-index: 10; font: 300 0.5rem/1 'JetBrains Mono', monospace; color: #2a2a2a; pointer-events: none; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">click to place spins<br>slide to twist</div>
+<div class="forces" id="forces">exchange — align<br>anisotropy — prefer<br>DMI — twist</div>
+<div class="label">twist</div>
+<div class="controls">
+  <span>twist</span>
+  <input type="range" min="0" max="300" value="0" id="twist">
+  <span class="angle" id="angle">0.0°</span>
+</div>
+<div class="marker" id="marker">1.1°</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const twistEl = document.getElementById('twist');
+const angleEl = document.getElementById('angle');
+const forcesEl = document.getElementById('forces');
+const markerEl = document.getElementById('marker');
+
+// Simulation grid
+const N = 120;
+const spx = new Float32Array(N * N);
+const spy = new Float32Array(N * N);
+const spz = new Float32Array(N * N);
+
+// Parameters
+const J = 1.0;    // exchange coupling
+const K = 0.15;   // anisotropy
+const B = 0.08;   // small external field to stabilize background
+const dt = 0.035;
+const STEPS = 20;
+
+let D = 0.0;      // DMI strength (from slider)
+let hasInteracted = false;
+let autoSeeded = false;
+
+// Rendering
+let W, H, cellSize;
+let imgData, buf;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+  cellSize = Math.max(Math.floor(Math.min(W, H) / N), 3);
+
+  // Position the 1.1° marker
+  const sliderRect = twistEl.getBoundingClientRect();
+  const frac = (1.1 / 3.0);
+  const markerX = sliderRect.left + frac * sliderRect.width;
+  markerEl.style.left = markerX + 'px';
+}
+
+// Initialize: all spins up
+function init() {
+  for (let i = 0; i < N * N; i++) {
+    spx[i] = 0;
+    spy[i] = 0;
+    spz[i] = 1;
+  }
+}
+
+// Seed a Néel skyrmion at (cx, cy) with radius r
+function seed(cx, cy, r) {
+  for (let gy = 0; gy < N; gy++) {
+    for (let gx = 0; gx < N; gx++) {
+      const ddx = gx - cx, ddy = gy - cy;
+      const d2 = ddx * ddx + ddy * ddy;
+      if (d2 < r * r) {
+        const i = gy * N + gx;
+        const d = Math.sqrt(d2);
+        const theta = Math.PI * (1 - d / r);
+        const phi = Math.atan2(ddy, ddx);
+        spx[i] = Math.sin(theta) * Math.cos(phi);
+        spy[i] = Math.sin(theta) * Math.sin(phi);
+        spz[i] = -Math.cos(theta);
+      }
+    }
+  }
+}
+
+// One relaxation step
+function relax() {
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const i = y * N + x;
+
+      // Neighbor indices (periodic boundary)
+      const ir = y * N + (x + 1) % N;
+      const il = y * N + (x - 1 + N) % N;
+      const iu = ((y + 1) % N) * N + x;
+      const id = ((y - 1 + N) % N) * N + x;
+
+      // Exchange field
+      let fx = J * (spx[ir] + spx[il] + spx[iu] + spx[id]);
+      let fy = J * (spy[ir] + spy[il] + spy[iu] + spy[id]);
+      let fz = J * (spz[ir] + spz[il] + spz[iu] + spz[id]);
+
+      // Anisotropy + external field
+      fz += 2 * K * spz[i] + B;
+
+      // DMI (Néel type)
+      fx += D * (spz[ir] - spz[il]);
+      fy += D * (spz[iu] - spz[id]);
+      fz -= D * (spx[ir] - spx[il] + spy[iu] - spy[id]);
+
+      // Project onto tangent plane: h_perp = h - (h·s)s
+      const dot = fx * spx[i] + fy * spy[i] + fz * spz[i];
+      const px = fx - dot * spx[i];
+      const py = fy - dot * spy[i];
+      const pz = fz - dot * spz[i];
+
+      // Update
+      spx[i] += dt * px;
+      spy[i] += dt * py;
+      spz[i] += dt * pz;
+
+      // Normalize
+      const len = Math.sqrt(spx[i] * spx[i] + spy[i] * spy[i] + spz[i] * spz[i]);
+      if (len > 0) {
+        spx[i] /= len;
+        spy[i] /= len;
+        spz[i] /= len;
+      }
+    }
+  }
+}
+
+function render() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Center the grid
+  const totalW = N * cellSize;
+  const totalH = N * cellSize;
+  const ox = Math.floor((W - totalW) / 2);
+  const oy = Math.floor((H - totalH) / 2);
+
+  // Create ImageData at grid resolution
+  if (!imgData || imgData.width !== N) {
+    imgData = ctx.createImageData(N, N);
+    buf = imgData.data;
+  }
+
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const i = y * N + x;
+      const pi = (y * N + x) * 4;
+
+      const szv = spz[i];
+      const t = (1 - szv) * 0.5; // 0 = up (bg), 1 = down (core)
+
+      // In-plane component
+      const inPlane = Math.sqrt(spx[i] * spx[i] + spy[i] * spy[i]);
+      const angle = Math.atan2(spy[i], spx[i]);
+
+      // Base color: dark navy (#0d1117) to amber (#e8c66a)
+      let r = 13 + t * (232 - 13);
+      let g = 17 + t * (198 - 17);
+      let b = 23 + t * (106 - 23);
+
+      // In-plane hue shift — visible only in the ring
+      const shift = inPlane * 35;
+      r += shift * Math.sin(angle);
+      g += shift * Math.sin(angle + 2.094);
+      b += shift * Math.sin(angle + 4.189);
+
+      buf[pi]     = Math.max(0, Math.min(255, r)) | 0;
+      buf[pi + 1] = Math.max(0, Math.min(255, g)) | 0;
+      buf[pi + 2] = Math.max(0, Math.min(255, b)) | 0;
+      buf[pi + 3] = 255;
+    }
+  }
+
+  // Draw at grid resolution then scale up
+  if (!render.offscreen) {
+    render.offscreen = new OffscreenCanvas(N, N);
+    render.octx = render.offscreen.getContext('2d');
+  }
+  render.octx.putImageData(imgData, 0, 0);
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(render.offscreen, ox, oy, totalW, totalH);
+}
+
+// Interaction
+canvas.addEventListener('click', (e) => {
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+
+  const totalW = N * cellSize;
+  const totalH = N * cellSize;
+  const ox = Math.floor((W - totalW) / 2);
+  const oy = Math.floor((H - totalH) / 2);
+
+  const gx = Math.floor((e.clientX - ox) / cellSize);
+  const gy = Math.floor((e.clientY - oy) / cellSize);
+
+  if (gx >= 0 && gx < N && gy >= 0 && gy < N) {
+    seed(gx, gy, 8);
+  }
+});
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+  const touch = e.touches[0];
+  const totalW = N * cellSize;
+  const totalH = N * cellSize;
+  const ox = Math.floor((W - totalW) / 2);
+  const oy = Math.floor((H - totalH) / 2);
+  const gx = Math.floor((touch.clientX - ox) / cellSize);
+  const gy = Math.floor((touch.clientY - oy) / cellSize);
+  if (gx >= 0 && gx < N && gy >= 0 && gy < N) {
+    seed(gx, gy, 8);
+  }
+}, { passive: false });
+
+// Slider
+twistEl.addEventListener('input', () => {
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+  const angleDeg = (twistEl.value / 300) * 3.0;
+  angleEl.textContent = angleDeg.toFixed(1) + '°';
+
+  // Map angle to DMI strength
+  // 0° → D=0, 3° → D=1.2
+  D = (angleDeg / 3.0) * 1.2;
+
+  // Auto-seed when first crossing the skyrmion stability threshold
+  if (!autoSeeded && angleDeg > 0.6) {
+    autoSeeded = true;
+    seed(N * 0.35, N * 0.4, 8);
+    seed(N * 0.65, N * 0.6, 8);
+    seed(N * 0.5, N * 0.25, 7);
+    seed(N * 0.3, N * 0.7, 7);
+    seed(N * 0.7, N * 0.35, 7);
+  }
+
+  // Update forces text brightness
+  const brightness = Math.min(1, D * 2);
+  forcesEl.style.color = `rgb(${26 + brightness * 50}, ${26 + brightness * 40}, ${26 + brightness * 30})`;
+});
+
+// Main loop
+function frame() {
+  for (let s = 0; s < STEPS; s++) {
+    relax();
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+
+// Start
+resize();
+init();
+
+window.addEventListener('resize', resize);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
