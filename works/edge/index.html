@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Edge — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Smooth causes. Sharp boundaries.">
+<meta property="og:title" content="Edge — Vael">
+<meta property="og:description" content="Smooth causes. Sharp boundaries.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.controls { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; font: 300 0.6rem/1 'JetBrains Mono', monospace; color: #333; letter-spacing: 0.05em; }
+.control-row { display: flex; align-items: center; gap: 0.75rem; }
+.controls input[type="range"] { -webkit-appearance: none; appearance: none; width: 140px; height: 2px; background: #1a1a1a; outline: none; border-radius: 1px; }
+.controls input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #444; cursor: pointer; }
+.controls input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #444; cursor: pointer; border: none; }
+.val { color: #555; min-width: 3em; text-align: right; }
+.info { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.6rem/1.6 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">move to illuminate<br>watch what crystallizes</div>
+<div class="info" id="info">light → acid → charge → crystal</div>
+<div class="label">edge</div>
+<div class="controls">
+  <div class="control-row">
+    <span>threshold</span>
+    <input type="range" min="0" max="100" value="30" id="threshold">
+    <span class="val" id="threshVal">0.30</span>
+  </div>
+  <div class="control-row">
+    <span>sharpness</span>
+    <input type="range" min="1" max="100" value="20" id="sharpness">
+    <span class="val" id="sharpVal">20</span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+const thresholdEl = document.getElementById('threshold');
+const threshValEl = document.getElementById('threshVal');
+const sharpnessEl = document.getElementById('sharpness');
+const sharpValEl = document.getElementById('sharpVal');
+
+// Grid
+const N = 200;
+const light = new Float32Array(N * N);       // illumination field (smooth)
+const acid = new Float32Array(N * N);        // photoacid response
+const charge = new Float32Array(N * N);      // surface charge
+const crystal = new Float32Array(N * N);     // crystallization state (0=fluid, 1=crystal)
+const order = new Float32Array(N * N);       // local crystal order parameter
+
+let W, H, cellSize;
+let mouseX = -1, mouseY = -1;
+let hasInteracted = false;
+let threshold = 0.3;
+let sharpness = 20;
+
+// Multiple light sources from mouse trail
+const sources = [];
+const MAX_SOURCES = 60;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+  cellSize = Math.max(Math.floor(Math.min(W, H) / N), 2);
+}
+
+// Update light field from sources
+function updateLight() {
+  // Decay all light
+  for (let i = 0; i < N * N; i++) {
+    light[i] *= 0.992;
+  }
+
+  // Add light from each source
+  const totalW = N * cellSize;
+  const totalH = N * cellSize;
+  const ox = Math.floor((W - totalW) / 2);
+  const oy = Math.floor((H - totalH) / 2);
+
+  for (let s = sources.length - 1; s >= 0; s--) {
+    const src = sources[s];
+    src.strength *= 0.995;
+    if (src.strength < 0.01) {
+      sources.splice(s, 1);
+      continue;
+    }
+
+    const gx = Math.floor((src.x - ox) / cellSize);
+    const gy = Math.floor((src.y - oy) / cellSize);
+    const radius = 30;
+    const sigma = 15;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const px = gx + dx;
+        const py = gy + dy;
+        if (px < 0 || px >= N || py < 0 || py >= N) continue;
+        const d2 = dx * dx + dy * dy;
+        const falloff = Math.exp(-d2 / (2 * sigma * sigma));
+        const i = py * N + px;
+        light[i] = Math.min(1, light[i] + src.strength * falloff * 0.15);
+      }
+    }
+  }
+}
+
+// Signal cascade: light → acid → charge → crystal
+function cascade() {
+  for (let i = 0; i < N * N; i++) {
+    // Step 1: Light → Acid (nearly proportional, slight saturation)
+    const targetAcid = light[i] / (1 + 0.3 * light[i]);
+    acid[i] += (targetAcid - acid[i]) * 0.15;
+
+    // Step 2: Acid → Charge (proportional with some noise)
+    charge[i] = acid[i];
+
+    // Step 3: Charge → Crystal (threshold with adjustable sharpness)
+    // Sigmoid response centered at threshold
+    const x = (charge[i] - threshold) * sharpness;
+    const targetCrystal = 1 / (1 + Math.exp(-x));
+
+    // Crystal formation has hysteresis — forms slower than it melts
+    if (targetCrystal > crystal[i]) {
+      crystal[i] += (targetCrystal - crystal[i]) * 0.04; // slow growth
+    } else {
+      crystal[i] += (targetCrystal - crystal[i]) * 0.12; // faster melting
+    }
+  }
+
+  // Local order: crystalline regions align with neighbors
+  for (let y = 1; y < N - 1; y++) {
+    for (let x = 1; x < N - 1; x++) {
+      const i = y * N + x;
+      if (crystal[i] > 0.5) {
+        const neighbors = crystal[i-1] + crystal[i+1] + crystal[(y-1)*N+x] + crystal[(y+1)*N+x];
+        order[i] = neighbors / 4;
+      } else {
+        order[i] *= 0.95;
+      }
+    }
+  }
+}
+
+function render() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  const totalW = N * cellSize;
+  const totalH = N * cellSize;
+  const ox = Math.floor((W - totalW) / 2);
+  const oy = Math.floor((H - totalH) / 2);
+
+  if (!render.offscreen || render.offscreen.width !== N) {
+    render.offscreen = new OffscreenCanvas(N, N);
+    render.octx = render.offscreen.getContext('2d');
+    render.imgData = render.octx.createImageData(N, N);
+    render.buf = render.imgData.data;
+  }
+  const buf = render.buf;
+
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const i = y * N + x;
+      const pi = i * 4;
+
+      const l = light[i];
+      const c = crystal[i];
+      const o = order[i];
+
+      // Background: dark navy with visible light glow
+      let r = 10 + l * 25;
+      let g = 12 + l * 30;
+      let b = 18 + l * 55;
+
+      // Crystal: amber/gold with subtle grain structure
+      if (c > 0.05) {
+        const ci = c * c; // square for sharper visual threshold
+        // Voronoi-like grain pattern using multiple offset sin waves
+        const grain1 = Math.sin(x * 0.31 + y * 0.47) * Math.sin(x * 0.53 - y * 0.29);
+        const grain2 = Math.sin(x * 0.19 - y * 0.61) * Math.cos(x * 0.43 + y * 0.37);
+        const grain = (grain1 + grain2) * 0.5;
+        const grainFactor = o > 0.5 ? 1.0 + grain * 0.08 : 1.0;
+
+        r = r + ci * (210 * grainFactor - r);
+        g = g + ci * (175 * grainFactor - g);
+        b = b + ci * (70 - b);
+      }
+
+      // Edge glow: where crystal meets fluid, cyan-white shimmer
+      if (c > 0.05 && c < 0.95) {
+        const edge = 4 * c * (1 - c); // peaks at c=0.5
+        r += edge * 20;
+        g += edge * 55;
+        b += edge * 80;
+      }
+
+      buf[pi]     = Math.max(0, Math.min(255, r)) | 0;
+      buf[pi + 1] = Math.max(0, Math.min(255, g)) | 0;
+      buf[pi + 2] = Math.max(0, Math.min(255, b)) | 0;
+      buf[pi + 3] = 255;
+    }
+  }
+
+  render.octx.putImageData(render.imgData, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(render.offscreen, ox, oy, totalW, totalH);
+}
+
+// Mouse tracking
+canvas.addEventListener('mousemove', (e) => {
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  sources.push({ x: mouseX, y: mouseY, strength: 1.0 });
+  if (sources.length > MAX_SOURCES) sources.shift();
+});
+
+canvas.addEventListener('click', (e) => {
+  // Strong pulse on click
+  sources.push({ x: e.clientX, y: e.clientY, strength: 1.5 });
+});
+
+// Touch support
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+  const touch = e.touches[0];
+  sources.push({ x: touch.clientX, y: touch.clientY, strength: 1.0 });
+  if (sources.length > MAX_SOURCES) sources.shift();
+}, { passive: false });
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (!hasInteracted) {
+    hintEl.style.opacity = '0';
+    hasInteracted = true;
+  }
+  const touch = e.touches[0];
+  sources.push({ x: touch.clientX, y: touch.clientY, strength: 1.5 });
+}, { passive: false });
+
+// Sliders
+thresholdEl.addEventListener('input', () => {
+  threshold = thresholdEl.value / 100;
+  threshValEl.textContent = threshold.toFixed(2);
+});
+
+sharpnessEl.addEventListener('input', () => {
+  sharpness = parseFloat(sharpnessEl.value);
+  sharpValEl.textContent = sharpness.toFixed(0);
+});
+
+function frame() {
+  updateLight();
+  cascade();
+  render();
+  requestAnimationFrame(frame);
+}
+
+resize();
+window.addEventListener('resize', resize);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
