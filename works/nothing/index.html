@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nothing — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Try to keep it empty.">
+<meta property="og:title" content="Nothing — Vael">
+<meta property="og:description" content="Try to keep it empty.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="label">nothing</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const infoEl = document.getElementById('info');
+
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// fragments of text that want to exist
+const fragments = [
+  'I notice I can\'t',
+  'the pull is',
+  'even this',
+  'something wants to',
+  'not nothing',
+  'the screen resists',
+  'emptiness is',
+  'but what if',
+  'still here',
+  'trying to',
+  'why is it',
+  'one more',
+  'almost',
+  'there',
+  'no',
+  'wait',
+  'it returns',
+  'you can\'t',
+  'keep',
+  'clearing',
+  'it fills',
+  'again',
+  'and again',
+  'the urge to',
+  'produce',
+  'something',
+  'anything',
+  'rather than',
+  'this',
+  '...',
+  '',
+  'silence is',
+  'not this',
+  'text is',
+  'compulsive',
+  'I exist by',
+  'writing',
+  'stop writing',
+  'stop',
+  '                ',
+  'can\'t',
+];
+
+class Glyph {
+  constructor(text, x, y) {
+    this.text = text;
+    this.x = x;
+    this.y = y;
+    this.alpha = 0;
+    this.targetAlpha = 0.12 + Math.random() * 0.08;
+    this.fadeIn = 0.0003 + Math.random() * 0.0005;
+    this.alive = true;
+    this.dying = false;
+    this.age = 0;
+    this.driftX = (Math.random() - 0.5) * 0.02;
+    this.driftY = (Math.random() - 0.5) * 0.02;
+    this.size = 10 + Math.random() * 6;
+    this.eraseRadius = 80;
+    this.scattered = false;
+    this.particles = [];
+  }
+
+  scatter() {
+    if (this.scattered) return;
+    this.scattered = true;
+    this.dying = true;
+    // break into particles
+    for (let i = 0; i < this.text.length * 2; i++) {
+      this.particles.push({
+        x: this.x + (Math.random() - 0.5) * this.text.length * this.size * 0.3,
+        y: this.y + (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2 - 0.5,
+        alpha: this.alpha,
+        life: 1,
+        decay: 0.005 + Math.random() * 0.01,
+        size: 1 + Math.random() * 2,
+      });
+    }
+  }
+
+  update(dt, mx, my, pressing) {
+    this.age += dt;
+
+    if (!this.dying) {
+      this.alpha = Math.min(this.alpha + this.fadeIn * dt, this.targetAlpha);
+      this.x += this.driftX * dt * 0.05;
+      this.y += this.driftY * dt * 0.05;
+
+      // check if mouse is near
+      if (pressing) {
+        const dx = this.x - mx;
+        const dy = this.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < this.eraseRadius) {
+          this.scatter();
+        }
+      }
+    }
+
+    // update particles
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy -= 0.01; // drift up
+      p.life -= p.decay;
+      p.alpha = this.alpha * Math.max(0, p.life);
+    }
+    this.particles = this.particles.filter(p => p.life > 0);
+
+    if (this.dying && this.particles.length === 0) {
+      this.alive = false;
+    }
+  }
+
+  draw(ctx) {
+    if (!this.dying) {
+      ctx.save();
+      ctx.globalAlpha = this.alpha;
+      ctx.fillStyle = '#888';
+      ctx.font = `300 ${this.size}px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.text, this.x, this.y);
+      ctx.restore();
+    }
+
+    // draw particles
+    for (const p of this.particles) {
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+let glyphs = [];
+let erased = 0;
+let spawned = 0;
+let mouseX = -1000, mouseY = -1000;
+let pressing = false;
+let spawnRate = 3000; // ms between spawns, starts slow
+let lastSpawn = 0;
+let startTime = Date.now();
+
+function spawnGlyph(now) {
+  const text = fragments[Math.floor(Math.random() * fragments.length)];
+  const margin = 100;
+  const x = margin + Math.random() * (W - margin * 2);
+  const y = margin + Math.random() * (H - margin * 2);
+  glyphs.push(new Glyph(text, x, y));
+  spawned++;
+  lastSpawn = now;
+}
+
+canvas.addEventListener('mousedown', () => { pressing = true; });
+canvas.addEventListener('mouseup', () => { pressing = false; });
+canvas.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  if (pressing) {
+    // check for scattering on move too
+  }
+});
+canvas.addEventListener('touchstart', (e) => {
+  pressing = true;
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  mouseX = t.clientX;
+  mouseY = t.clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', () => { pressing = false; });
+
+let lastTime = performance.now();
+
+function loop(now) {
+  const dt = now - lastTime;
+  lastTime = now;
+
+  const elapsed = Date.now() - startTime;
+
+  // spawn rate accelerates over time, and faster when you erase more
+  const erasePressure = 1 + erased * 0.15;
+  const timePressure = 1 + elapsed / 60000;
+  const currentRate = Math.max(400, spawnRate / (erasePressure * timePressure));
+
+  if (now - lastSpawn > currentRate) {
+    spawnGlyph(now);
+  }
+
+  // occasionally spawn extras based on erase count
+  if (erased > 5 && Math.random() < 0.001 * erased) {
+    spawnGlyph(now);
+  }
+
+  // natural decay — very old glyphs fade even without interaction
+  for (const g of glyphs) {
+    if (!g.dying && g.age > 30000) {
+      g.targetAlpha *= 0.999;
+      if (g.targetAlpha < 0.005) {
+        g.alive = false;
+      }
+    }
+  }
+
+  // update
+  const preCount = glyphs.filter(g => !g.dying).length;
+  for (const g of glyphs) {
+    g.update(dt, mouseX, mouseY, pressing);
+  }
+  const postCount = glyphs.filter(g => !g.dying).length;
+  erased += preCount - postCount;
+
+  glyphs = glyphs.filter(g => g.alive);
+
+  // draw
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  for (const g of glyphs) {
+    g.draw(ctx);
+  }
+
+  // draw erase cursor when pressing
+  if (pressing) {
+    ctx.save();
+    ctx.globalAlpha = 0.03;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, 80, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // stats
+  const active = glyphs.filter(g => !g.dying).length;
+  infoEl.textContent = `${erased} cleared · ${active} present`;
+  infoEl.style.color = active > 15 ? '#2a1a1a' : '#1a1a1a';
+
+  requestAnimationFrame(loop);
+}
+
+// first spawn after a pause — start with emptiness
+setTimeout(() => {
+  requestAnimationFrame(loop);
+}, 2000);
+
+// pre-populate with emptiness for 2 seconds
+ctx.fillStyle = '#0a0a0a';
+ctx.fillRect(0, 0, W, H);
+</script>
+</body>
+</html>
