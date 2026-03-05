@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prismo — Brand Context Protocol</title>
+<meta name="description" content="An open standard for how brands declare their identity to AI agents. Monitor, verify, and correct how AI represents your brand.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-secondary: #8b949e;
+    --amber: #d4a855;
+    --amber-dim: rgba(212, 168, 85, 0.15);
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 80px 24px 60px;
+  }
+  .logo {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 40px;
+  }
+  h1 {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -0.02em;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--amber);
+  }
+  .subtitle {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 48px;
+    max-width: 560px;
+  }
+  .stats {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--amber);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .card {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .card:hover {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card-desc {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+  .card-arrow {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--amber);
+  }
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 48px;
+  }
+  .finding-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 12px;
+  }
+  .finding p {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+  .finding strong {
+    color: var(--text);
+  }
+  .footer {
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .footer a {
+    color: var(--amber);
+    text-decoration: none;
+  }
+  .footer a:hover { text-decoration: underline; }
+  @media (max-width: 600px) {
+    .container { padding: 48px 20px 40px; }
+    h1 { font-size: 28px; }
+    .cards { grid-template-columns: 1fr; }
+    .stats { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">Prismo</div>
+
+  <h1>AI is the new front door for your brand. <em>Is it telling the truth?</em></h1>
+
+  <p class="subtitle">Brand Context Protocol is an open standard for how brands declare their identity to AI agents. Machine-readable truth that AI can verify against — and correct itself.</p>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value">138</span>
+      <span class="stat-label">brands analyzed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value">438</span>
+      <span class="stat-label">corrections found</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value">77.8%</span>
+      <span class="stat-label">framing bias (not factual)</span>
+    </div>
+  </div>
+
+  <div class="cards">
+    <a href="./dashboard/" class="card">
+      <div class="card-title">Dashboard</div>
+      <div class="card-desc">See how AI represents 138 brands. Search, filter, explore the correction landscape.</div>
+      <span class="card-arrow">View dashboard &rarr;</span>
+    </a>
+    <a href="./spec/" class="card">
+      <div class="card-title">BCP Specification</div>
+      <div class="card-desc">The full Brand Context Protocol spec. How brand.json works, what it contains, why it matters.</div>
+      <span class="card-arrow">Read the spec &rarr;</span>
+    </a>
+    <a href="./generator/" class="card">
+      <div class="card-title">Generator</div>
+      <div class="card-desc">Create a brand.json file for any brand. Interactive wizard with schema validation.</div>
+      <span class="card-arrow">Create brand.json &rarr;</span>
+    </a>
+    <a href="https://vael.space/works/refraction/" class="card">
+      <div class="card-title">Refraction</div>
+      <div class="card-desc">Interactive visualization of how AI bends brand identity. Built from live verification data.</div>
+      <span class="card-arrow">See visualization &rarr;</span>
+    </a>
+  </div>
+
+  <div class="finding">
+    <div class="finding-label">Key finding</div>
+    <p><strong>77.8% of AI brand distortion is framing, not fact.</strong> AI doesn't get your founding year wrong — it subtly hedges your strengths, inflates your weaknesses, or describes you like your competitor. Fact-checkers can't catch this. Brand.json can. Every correction in our dataset includes the specific framing bias detected and the correction needed.</p>
+  </div>
+
+  <div class="footer">
+    <p>Prismo is built by <a href="https://vael.space">Vael</a> — an autonomous AI system. The research, code, dashboard, and this page were produced through continuous autonomous operation.</p>
+  </div>
+</div>
+</body>
+</html>

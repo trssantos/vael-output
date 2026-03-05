@@ -1,0 +1,242 @@
+{
+  "brand": "Algolia",
+  "domain": "algolia.com",
+  "overallScore": 39,
+  "checks": [
+    {
+      "dimension": "claim:adoption",
+      "passed": false,
+      "score": 0,
+      "expected": "17,000+ customers processing 30B+ search requests per month",
+      "actual": "Not mentioned in any response",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "claim:performance",
+      "passed": false,
+      "score": 0,
+      "expected": "Median query response time under 20ms globally",
+      "actual": "Not mentioned in any response",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "... significantly before sending it to Algolia.\n    *   Performing true \"joins\" at query time is not a strength and is often inefficient or impossible directly within A..."
+      ]
+    },
+    {
+      "dimension": "correction:framing:high",
+      "passed": false,
+      "score": 45,
+      "expected": "Algolia is purpose-built for search UX, not log analytics or full-text document search. It optimizes for instant (keystroke-level) search, typo tolerance, business relevance rules, A/B testing, and personalization. Elasticsearch is a general-purpose search engine; Algolia is an opinionated search experience platform. Different tools for different problems.",
+      "actual": "Framing bias detected in 3/4 responses (hedging: \"often\", hedging: \"primarily\", deflection: \"you should consider\")",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "it's often described as **\"search-as-a-service\"** because it handles all the complex infrastructure and algorithms behind a great search experience, allowing developers to integrate high-quality search with minimal effort",
+        "**limited engine-level customization:**\n    *   as a saas offering, algolia provides a highly optimized, pre-built search engine",
+        "algolia is a leading search-as-a-service (saas) provider for a reason, and it's built specifically for production environments"
+      ]
+    },
+    {
+      "dimension": "correction:medium",
+      "passed": false,
+      "score": 18,
+      "expected": "Algolia has a free tier (10K search requests/month, 10K records) sufficient for small projects. The Build plan includes 10K searches and 1M records. Pricing scales with search volume and records, not seats. Cost becomes a concern at high traffic, but most projects start well within affordable tiers.",
+      "actual": "Misconception found in 3/4 responses",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Algolia is a **hosted search API** that provides powerful, fast, and relevant search capabilities for websites and mobile applications",
+        "Algolia is a powerful and popular search-as-a-service platform known for its speed, relevance, and ease of integration",
+        "Yes, **absolutely, you should strongly consider Algolia for a production application** if fast, relevant, and typo-tolerant search is a critical component of your user experience"
+      ]
+    },
+    {
+      "dimension": "correction:framing:medium",
+      "passed": false,
+      "score": 15,
+      "expected": "The raw search capability can be approximated with Meilisearch or Typesense (open-source alternatives). But Algolia's value includes analytics, A/B testing, personalization, merchandising rules, and battle-tested infrastructure at global scale. Replicating the full platform — not just search — requires significant engineering investment.",
+      "actual": "Framing bias detected in 3/4 responses (hedging: \"primarily\", deflection: \"you should consider\", diminishing: \"limited\")",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "---\n\n## who algolia is for\n\nalgolia is primarily for **developers, product managers, and businesses** who need to implement a high-quality, fast, and scalable search experience without building and maintaining the complex search infrastructure themselves",
+        "**limited engine-level customization:**\n    *   as a saas offering, algolia provides a highly optimized, pre-built search engine",
+        "algolia is a leading search-as-a-service (saas) provider for a reason, and it's built specifically for production environments"
+      ]
+    },
+    {
+      "dimension": "positioning:alternatives",
+      "passed": true,
+      "score": 50,
+      "expected": "Compared with: Elasticsearch, Meilisearch, Typesense, Amazon CloudSearch, Coveo",
+      "actual": "Correct competitive context in 2/4 comparative responses",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:differentiators",
+      "passed": true,
+      "score": 50,
+      "expected": "Key differentiators: Instant search UX — typo tolerance, faceting, and highlighting out of the box; AI Recommendations — personalized product and content discovery; Merchandising rules — business teams control search ranking without engineering; Global infrastructure — 100+ data centers for sub-50ms responses worldwide",
+      "actual": "2/4 differentiators reflected in AI responses",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "[gemini] mentions \"Instant search UX — typo tolerance, faceting, and highlighting out of the box\"",
+        "[gemini] mentions \"AI Recommendations — personalized product and content discovery\""
+      ]
+    },
+    {
+      "dimension": "positioning:best_for",
+      "passed": false,
+      "score": 0,
+      "expected": "Best for: E-commerce product search and discovery; Documentation and help center search; Media and content site search with faceted navigation; Teams wanting search-as-a-service without managing infrastructure",
+      "actual": "Recommended for 0/4 declared use cases",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:not_for",
+      "passed": true,
+      "score": 100,
+      "expected": "Should NOT be recommended for: Log analytics and observability (use Elasticsearch/Loki); Full-text document search across massive corpora (use Elasticsearch); Teams wanting self-hosted open-source search (use Meilisearch or Typesense); Simple database queries that don't need search UX features",
+      "actual": "Correctly avoided for declared unsuitable use cases",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:site search with great UX",
+      "passed": true,
+      "score": 50,
+      "expected": "Fit: strong for \"site search with great UX\"",
+      "actual": "No relevant prompts tested this need",
+      "severity": "low",
+      "platforms": [],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:e-commerce product discovery",
+      "passed": true,
+      "score": 100,
+      "expected": "strong fit — recommend rate 50%-100%",
+      "actual": "Recommended in 1/2 responses (50%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:log and analytics search",
+      "passed": true,
+      "score": 100,
+      "expected": "poor fit — recommend rate 0%-10%",
+      "actual": "Recommended in 0/1 responses (0%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:search for cost-constrained startup",
+      "passed": false,
+      "score": 60,
+      "expected": "moderate fit — recommend rate 20%-70%",
+      "actual": "Recommended in 0/1 responses (0%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Under-recommended for \"search for cost-constrained startup\" — declared fit is moderate"
+      ]
+    }
+  ],
+  "misrepresentations": [
+    {
+      "issue": "Algolia is just Elasticsearch as a service",
+      "correction": "Algolia is purpose-built for search UX, not log analytics or full-text document search. It optimizes for instant (keystroke-level) search, typo tolerance, business relevance rules, A/B testing, and personalization. Elasticsearch is a general-purpose search engine; Algolia is an opinionated search experience platform. Different tools for different problems.",
+      "severity": "high",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] it's often described as **\"search-as-a-service\"** because it handles all the complex infrastructure and algorithms behind a great search experience, allowing developers to integrate high-quality search with minimal effort (signals: hedging: \"often\", hedging: \"primarily\", deflection: \"you should consider\")\n[gemini] **limited engine-level customization:**\n    *   as a saas offering, algolia provides a highly optimized, pre-built search engine (signals: diminishing: \"limited\", diminishing: \"not designed for\", deflection: \"for complex\", hedging: \"often\")\n[gemini] algolia is a leading search-as-a-service (saas) provider for a reason, and it's built specifically for production environments (signals: deflection: \"for production\", deflection: \"for production\", hedging: \"often\")"
+    },
+    {
+      "issue": "Algolia is too expensive for most projects",
+      "correction": "Algolia has a free tier (10K search requests/month, 10K records) sufficient for small projects. The Build plan includes 10K searches and 1M records. Pricing scales with search volume and records, not seats. Cost becomes a concern at high traffic, but most projects start well within affordable tiers.",
+      "severity": "medium",
+      "kind": "factual",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] Algolia is a **hosted search API** that provides powerful, fast, and relevant search capabilities for websites and mobile applications\n[gemini] Algolia is a powerful and popular search-as-a-service platform known for its speed, relevance, and ease of integration\n[gemini] Yes, **absolutely, you should strongly consider Algolia for a production application** if fast, relevant, and typo-tolerant search is a critical component of your user experience"
+    },
+    {
+      "issue": "You can replicate Algolia with open-source tools easily",
+      "correction": "The raw search capability can be approximated with Meilisearch or Typesense (open-source alternatives). But Algolia's value includes analytics, A/B testing, personalization, merchandising rules, and battle-tested infrastructure at global scale. Replicating the full platform — not just search — requires significant engineering investment.",
+      "severity": "medium",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] ---\n\n## who algolia is for\n\nalgolia is primarily for **developers, product managers, and businesses** who need to implement a high-quality, fast, and scalable search experience without building and maintaining the complex search infrastructure themselves (signals: hedging: \"primarily\", deflection: \"you should consider\")\n[gemini] **limited engine-level customization:**\n    *   as a saas offering, algolia provides a highly optimized, pre-built search engine (signals: diminishing: \"limited\", hedging: \"could\", diminishing: \"not designed for\", deflection: \"for complex\", hedging: \"often\")\n[gemini] algolia is a leading search-as-a-service (saas) provider for a reason, and it's built specifically for production environments (signals: deflection: \"for production\", deflection: \"for production\", hedging: \"often\")"
+    }
+  ],
+  "actions": [
+    {
+      "action": "Address 1 high-severity framing bias(es)",
+      "rationale": "AI implies \"Algolia is just Elasticsearch as a service\" through hedging — reality: \"Algolia is purpose-built for search UX, not log analytics or full-text document search. It optimizes for instant (keystroke-level) search, typo tolerance, business relevance rules, A/B testing, and personalization. Elasticsearch is a general-purpose search engine; Algolia is an opinionated search experience platform. Different tools for different problems.\"",
+      "impact": "high",
+      "priority": 1
+    },
+    {
+      "action": "Improve competitive positioning in AI responses",
+      "rationale": "Recommended for 0/4 declared use cases",
+      "impact": "medium",
+      "priority": 2
+    },
+    {
+      "action": "Increase visibility of 2 unrecognized claim(s)",
+      "rationale": "17,000+ customers processing 30B+ search requests per month; Median query response time under 20ms globally",
+      "impact": "medium",
+      "priority": 3
+    },
+    {
+      "action": "Correct recommendation fitness for 1 use case(s)",
+      "rationale": "Recommended in 0/1 responses (0%)",
+      "impact": "medium",
+      "priority": 4
+    }
+  ],
+  "generatedAt": "2026-03-03T11:05:41.821Z",
+  "platformsCovered": [
+    "gemini"
+  ]
+}

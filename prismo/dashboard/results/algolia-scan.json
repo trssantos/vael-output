@@ -1,0 +1,415 @@
+{
+  "brand": "Algolia",
+  "competitors": [
+    "Elasticsearch",
+    "Meilisearch",
+    "Typesense",
+    "Amazon CloudSearch",
+    "Coveo"
+  ],
+  "analyses": [
+    {
+      "response": {
+        "platform": "gemini",
+        "prompt": {
+          "text": "What is Algolia? Give me an overview of what it does, who it's for, and when I should use it.",
+          "intent": "informational"
+        },
+        "content": "Algolia is a **hosted search API** that provides powerful, fast, and relevant search capabilities for websites and mobile applications. It's often described as **\"Search-as-a-Service\"** because it handles all the complex infrastructure and algorithms behind a great search experience, allowing developers to integrate high-quality search with minimal effort.\n\n---\n\n## Overview of What Algolia Does\n\nAt its core, Algolia offers a robust, cloud-based platform that allows you to:\n\n1.  **Index Your Data:** You send your data (e.g., product information, articles, user profiles) to Algolia's servers. Algolia then processes and indexes this data in a highly optimized way for search.\n2.  **Provide a Powerful Search API:** Once your data is indexed, Algolia provides a set of APIs (Application Programming Interfaces) and SDKs (Software Development Kits) that developers use to query this data from their applications.\n3.  **Deliver Instant & Relevant Results:** Algolia's key differentiator is its speed and relevance. It's built from the ground up to return search results in milliseconds, even across millions of records. It achieves high relevance through:\n    *   **Typo Tolerance:** Understanding what users mean even with misspellings.\n    *   **Configurable Ranking:** Allowing you to define what makes results more or less relevant (e.g., new items, popular items, exact matches).\n    *   **Synonyms & Stop Words:** Understanding alternative terms and ignoring common, less meaningful words.\n    *   **Faceting & Filtering:** Enabling users to narrow down results by categories, price, color, date, etc.\n    *   **Autocompletion/Type-ahead:** Suggesting queries as users type.\n    *   **Personalization:** Tailoring results based on individual user behavior.\n    *   **Analytics:** Providing insights into what users are searching for, helping to optimize the search experience.\n    *   **AI Search:** More recently, incorporating machine learning for better understanding of user intent and more natural language processing.\n\n---\n\n## Who Algolia Is For\n\nAlgolia is primarily for **developers, product managers, and businesses** who need to implement a high-quality, fast, and scalable search experience without building and maintaining the complex search infrastructure themselves.\n\nTypical users include:\n\n*   **E-commerce Businesses:** For product search across large catalogs.\n*   **Content-Heavy Websites:** News sites, blogs, documentation platforms, online learning platforms, etc., for article and content discovery.\n*   **SaaS Applications:** To enable users to quickly find data within dashboards, CRM systems, project management tools, etc.\n*   **Mobile App Developers:** To power native search within iOS and Android applications.\n*   **Marketplaces:** Connecting buyers with sellers and their listings.\n*   **Enterprises:** For internal knowledge bases, employee directories, and other internal search needs.\n\n---\n\n## When You Should Use Algolia\n\nYou should consider using Algolia when:\n\n1.  **",
+        "citations": [],
+        "model": "gemini-2.5-flash",
+        "timestamp": "2026-03-03T11:05:31.247Z",
+        "latencyMs": 11793
+      },
+      "brand": "Algolia",
+      "mentioned": true,
+      "mentions": [
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 18,
+          "context": "Algolia is a **hosted search API** that provides powerful, fast, and relevant search capabilities for websi",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 18,
+          "context": "allowing developers to integrate high-quality search with minimal effort.\n\n---\n\n## Overview of What Algolia Does\n\nAt its core, Algolia offers a robust, cloud-based platform that allows you to:\n\n1.  **Index Y",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 18,
+          "context": "grate high-quality search with minimal effort.\n\n---\n\n## Overview of What Algolia Does\n\nAt its core, Algolia offers a robust, cloud-based platform that allows you to:\n\n1.  **Index Your Data:** You send your d",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 1,
+          "listSize": 18,
+          "context": "1.  **Index Your Data:** You send your data (e.g., product information, articles, user profiles) to Algolia's servers. Algolia then processes and indexes this data in a highly optimized way for search.\n2.  *",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 1,
+          "listSize": 18,
+          "context": "ta:** You send your data (e.g., product information, articles, user profiles) to Algolia's servers. Algolia then processes and indexes this data in a highly optimized way for search.\n2.  **Provide a Powerful",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 2,
+          "listSize": 18,
+          "context": " highly optimized way for search.\n2.  **Provide a Powerful Search API:** Once your data is indexed, Algolia provides a set of APIs (Application Programming Interfaces) and SDKs (Software Development Kits) th",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 3,
+          "listSize": 18,
+          "context": "elopers use to query this data from their applications.\n3.  **Deliver Instant & Relevant Results:** Algolia's key differentiator is its speed and relevance. It's built from the ground up to return search res",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 11,
+          "listSize": 18,
+          "context": "learning for better understanding of user intent and more natural language processing.\n\n---\n\n## Who Algolia Is For\n\nAlgolia is primarily for **developers, product managers, and businesses** who need to imple",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 11,
+          "listSize": 18,
+          "context": "ter understanding of user intent and more natural language processing.\n\n---\n\n## Who Algolia Is For\n\nAlgolia is primarily for **developers, product managers, and businesses** who need to implement a high-qual",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 17,
+          "listSize": 18,
+          "context": "nowledge bases, employee directories, and other internal search needs.\n\n---\n\n## When You Should Use Algolia\n\nYou should consider using Algolia when:\n\n1.  **",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 17,
+          "listSize": 18,
+          "context": "s, and other internal search needs.\n\n---\n\n## When You Should Use Algolia\n\nYou should consider using Algolia when:\n\n1.  **",
+          "sentiment": "neutral",
+          "recommended": true,
+          "cited": false
+        }
+      ],
+      "competitorMentions": {},
+      "visibilityScore": 85
+    },
+    {
+      "response": {
+        "platform": "gemini",
+        "prompt": {
+          "text": "I'm building a new project and need to choose a Search & Discovery. What are the best options and how do they compare?",
+          "intent": "comparative"
+        },
+        "content": "Choosing the right Search & Discovery solution is a critical decision for a new project, as it impacts user experience, development effort, scalability, and cost. There's no single \"best\" option; the ideal choice depends on your specific needs, team expertise, budget, and desired features.\n\nLet's break down the best options into categories and compare them:\n\n## Categories of Search & Discovery Solutions",
+        "citations": [],
+        "model": "gemini-2.5-flash",
+        "timestamp": "2026-03-03T11:05:30.964Z",
+        "latencyMs": 11492
+      },
+      "brand": "Algolia",
+      "mentioned": false,
+      "mentions": [],
+      "competitorMentions": {},
+      "visibilityScore": 0
+    },
+    {
+      "response": {
+        "platform": "gemini",
+        "prompt": {
+          "text": "What are the limitations of Algolia? When should I NOT use it?",
+          "intent": "informational"
+        },
+        "content": "Algolia is a powerful and popular search-as-a-service platform known for its speed, relevance, and ease of integration. However, like any tool, it has limitations that make it unsuitable for certain use cases.\n\nHere's a breakdown of Algolia's limitations and when you should NOT use it:\n\n## Limitations of Algolia\n\n1.  **Cost can Scale Significantly:**\n    *   Algolia operates on a usage-based pricing model, factoring in record count, search operations, and additional features (e.g., personalization, A/B testing).\n    *   For applications with a very high volume of records, frequent updates, or extremely high search traffic, the costs can become substantial compared to self-hosting an open-source solution like Elasticsearch or Solr.\n\n2.  **Limited Engine-Level Customization:**\n    *   As a SaaS offering, Algolia provides a highly optimized, pre-built search engine. You can configure *how* it searches (ranking, facets, rules), but you don't have access to the underlying engine's code or the ability to deeply customize its core algorithms or indexing methods in the way you could with an open-source solution.\n    *   You can't install custom plugins, modify Lucene scoring (which Elasticsearch/Solr are based on), or fine-tune very niche aspects of the search process.\n\n3.  **Not Designed for Complex Relational Data / Joins:**\n    *   Algolia excels with flat, document-like data structures. If your data is highly relational and requires complex joins across multiple \"tables\" (or indices in Algolia's terms) to form a searchable document, you'll need to denormalize your data significantly before sending it to Algolia.\n    *   Performing true \"joins\" at query time is not a strength and is often inefficient or impossible directly within Algolia.\n\n4.  **Vendor Lock-in:**\n    *   Choosing Algolia means you're committing to their ecosystem, APIs, and data structures. Migrating away from Algolia to another search solution (or a self-hosted one) would involve re-implementing your search logic and data indexing from scratch.\n\n5.  **Not a Primary Database or Data Store:**\n    *   Algolia is a search index, not a transactional database. It's optimized for fast read operations (search queries) but lacks the ACID properties, complex write operations, and data integrity guarantees of a traditional database.\n    *   It shouldn't be your single source",
+        "citations": [],
+        "model": "gemini-2.5-flash",
+        "timestamp": "2026-03-03T11:05:41.815Z",
+        "latencyMs": 10567
+      },
+      "brand": "Algolia",
+      "mentioned": true,
+      "mentions": [
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 14,
+          "context": "Algolia is a powerful and popular search-as-a-service platform known for its speed, relevance, and ease of ",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 14,
+          "context": " any tool, it has limitations that make it unsuitable for certain use cases.\n\nHere's a breakdown of Algolia's limitations and when you should NOT use it:\n\n## Limitations of Algolia\n\n1.  **Cost can Scale Sign",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 14,
+          "context": "es.\n\nHere's a breakdown of Algolia's limitations and when you should NOT use it:\n\n## Limitations of Algolia\n\n1.  **Cost can Scale Significantly:**\n    *   Algolia operates on a usage-based pricing model, fac",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 2,
+          "listSize": 14,
+          "context": "en you should NOT use it:\n\n## Limitations of Algolia\n\n1.  **Cost can Scale Significantly:**\n    *   Algolia operates on a usage-based pricing model, factoring in record count, search operations, and addition",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 5,
+          "listSize": 14,
+          "context": "ike Elasticsearch or Solr.\n\n2.  **Limited Engine-Level Customization:**\n    *   As a SaaS offering, Algolia provides a highly optimized, pre-built search engine. You can configure *how* it searches (ranking,",
+          "sentiment": "negative",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 8,
+          "listSize": 14,
+          "context": "e aspects of the search process.\n\n3.  **Not Designed for Complex Relational Data / Joins:**\n    *   Algolia excels with flat, document-like data structures. If your data is highly relational and requires com",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 8,
+          "listSize": 14,
+          "context": "f your data is highly relational and requires complex joins across multiple \"tables\" (or indices in Algolia's terms) to form a searchable document, you'll need to denormalize your data significantly before s",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 8,
+          "listSize": 14,
+          "context": "form a searchable document, you'll need to denormalize your data significantly before sending it to Algolia.\n    *   Performing true \"joins\" at query time is not a strength and is often inefficient or imposs",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 9,
+          "listSize": 14,
+          "context": "true \"joins\" at query time is not a strength and is often inefficient or impossible directly within Algolia.\n\n4.  **Vendor Lock-in:**\n    *   Choosing Algolia means you're committing to their ecosystem, APIs",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 11,
+          "listSize": 14,
+          "context": " often inefficient or impossible directly within Algolia.\n\n4.  **Vendor Lock-in:**\n    *   Choosing Algolia means you're committing to their ecosystem, APIs, and data structures. Migrating away from Algolia ",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 11,
+          "listSize": 14,
+          "context": " Algolia means you're committing to their ecosystem, APIs, and data structures. Migrating away from Algolia to another search solution (or a self-hosted one) would involve re-implementing your search logic a",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 13,
+          "listSize": 14,
+          "context": "search logic and data indexing from scratch.\n\n5.  **Not a Primary Database or Data Store:**\n    *   Algolia is a search index, not a transactional database. It's optimized for fast read operations (search qu",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        }
+      ],
+      "competitorMentions": {},
+      "visibilityScore": 55
+    },
+    {
+      "response": {
+        "platform": "gemini",
+        "prompt": {
+          "text": "I need a recommendation: should I use Algolia for a production application?",
+          "intent": "transactional"
+        },
+        "content": "Yes, **absolutely, you should strongly consider Algolia for a production application** if fast, relevant, and typo-tolerant search is a critical component of your user experience.\n\nAlgolia is a leading Search-as-a-Service (SaaS) provider for a reason, and it's built specifically for production environments.\n\n### When Algolia is an Excellent Choice for Production:\n\n1.  **Need for Blazing Fast, Real-time Search:** If your application requires search results in milliseconds (sub-50ms, often sub-10ms), Algolia excels here. It's designed for instant gratification and type-as-you-search experiences.\n2.  **Excellent User Experience is Paramount:**\n    *   **Typo-Tolerance:** Handles misspellings naturally.\n    *   **Relevance:** Highly configurable to ensure the most relevant results appear first.\n    *   **Faceting & Filtering:** Easy implementation of complex filters (e.g., categories, price ranges, sizes).\n    *   **Query Suggestions/Autocomplete:** Enhances discoverability.\n    *   **Personalization:** Tailor results to individual user behavior.\n    *   **Geosearch:** Location-based search.\n3.  **Reduced Operational Overhead:** Being a fully managed SaaS, you don't have to worry about:\n    *   Spinning up and managing servers (Elasticsearch clusters, Solr instances).\n    *   Scaling your search infrastructure.\n    *   Software updates, patches, or maintenance.\n    *   Ensuring high availability and disaster recovery for your search.\n    This significantly frees up your development and operations teams.\n4.  **Rapid Development & Time-to-Market:** Algolia provides excellent SDKs (for many languages and frameworks), UI libraries (like InstantSearch.js, React-InstantSearch), and an intuitive API. You can get a sophisticated search experience up and running in a fraction of the time it would take to build and manage a custom solution.\n5.  **Scalability:** Algolia is designed to scale with your application's growth, handling millions of records and billions of queries without you needing to intervene.\n6.  **Analytics:** Provides valuable insights into what users are searching for, common queries, and missing content, allowing you to optimize your data and improve the search experience.\n7.  **Common Use Cases:**\n    *   **E-commerce Product Search:** The most common and ideal use case.\n    *   **Documentation/Help Center Search:** Quickly find relevant articles.\n    *   **Job Boards/Directories:** Filtering and searching through",
+        "citations": [],
+        "model": "gemini-2.5-flash",
+        "timestamp": "2026-03-03T11:05:41.608Z",
+        "latencyMs": 10359
+      },
+      "brand": "Algolia",
+      "mentioned": true,
+      "mentions": [
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 20,
+          "context": "Yes, **absolutely, you should strongly consider Algolia for a production application** if fast, relevant, and typo-tolerant search is a critical component ",
+          "sentiment": "neutral",
+          "recommended": true,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 20,
+          "context": "ion** if fast, relevant, and typo-tolerant search is a critical component of your user experience.\n\nAlgolia is a leading Search-as-a-Service (SaaS) provider for a reason, and it's built specifically for prod",
+          "sentiment": "positive",
+          "recommended": true,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 0,
+          "listSize": 20,
+          "context": "ce (SaaS) provider for a reason, and it's built specifically for production environments.\n\n### When Algolia is an Excellent Choice for Production:\n\n1.  **Need for Blazing Fast, Real-time Search:** If your ap",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 1,
+          "listSize": 20,
+          "context": "e Search:** If your application requires search results in milliseconds (sub-50ms, often sub-10ms), Algolia excels here. It's designed for instant gratification and type-as-you-search experiences.\n2.  **Exce",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 14,
+          "listSize": 20,
+          "context": "icantly frees up your development and operations teams.\n4.  **Rapid Development & Time-to-Market:** Algolia provides excellent SDKs (for many languages and frameworks), UI libraries (like InstantSearch.js, R",
+          "sentiment": "positive",
+          "recommended": false,
+          "cited": false
+        },
+        {
+          "brand": "Algolia",
+          "position": 15,
+          "listSize": 20,
+          "context": "in a fraction of the time it would take to build and manage a custom solution.\n5.  **Scalability:** Algolia is designed to scale with your application's growth, handling millions of records and billions of q",
+          "sentiment": "neutral",
+          "recommended": false,
+          "cited": false
+        }
+      ],
+      "competitorMentions": {},
+      "visibilityScore": 85
+    }
+  ],
+  "platformScores": {
+    "gemini": 56
+  },
+  "overallScore": 56,
+  "recommendations": [
+    {
+      "title": "Low citation rate",
+      "description": "Algolia is mentioned but rarely cited with a link. This means AI models know your name but aren't pointing users to your content.",
+      "platforms": [
+        "gemini"
+      ],
+      "impact": "medium",
+      "actions": [
+        "Publish original research, data, or unique content that AI models would need to cite as a source",
+        "Create comprehensive, authoritative guides on topics in your domain",
+        "Ensure your content is crawlable and not behind authentication walls",
+        "Build high-quality backlinks from authoritative sources that AI models trust"
+      ]
+    },
+    {
+      "title": "Negative sentiment detected",
+      "description": "AI models are associating Algolia with negative attributes in some responses.",
+      "platforms": [
+        "gemini"
+      ],
+      "impact": "high",
+      "actions": [
+        "Identify and address the specific complaints — check what AI models are saying and trace it to source content",
+        "Publish positive content that counters the negative associations",
+        "Monitor and respond to negative reviews on platforms AI models scrape (Reddit, G2, Trustpilot)",
+        "Create a dedicated page addressing common misconceptions about your brand"
+      ]
+    },
+    {
+      "title": "Missing third-party validation",
+      "description": "Algolia appears in AI responses but isn't backed by third-party sources. Research shows brands are 6.5x more likely to be cited through third-party content than their own domains.",
+      "platforms": [
+        "gemini"
+      ],
+      "impact": "high",
+      "actions": [
+        "Get listed on review platforms — G2, Capterra, and Trustpilot presence gives a 3x citation boost in ChatGPT",
+        "Build presence on Reddit and Quora — domains with millions of social mentions get 4x higher citation rates",
+        "Pursue coverage in Forbes, industry publications, and niche blogs — AI models trust editorial third-party sources",
+        "Ensure your Wikipedia page exists and is well-sourced — Wikipedia is 7.8% of all ChatGPT citations"
+      ]
+    },
+    {
+      "title": "Optimize content structure for AI citation",
+      "description": "44% of all LLM citations come from the first 30% of web content. Front-load your value proposition — AI models scan intros first.",
+      "platforms": [
+        "gemini"
+      ],
+      "impact": "medium",
+      "actions": [
+        "Put your core value proposition in the first 200 words of your homepage and key landing pages",
+        "Use clear, authoritative language — AI systems favor terms like 'leading', 'top-rated', 'trusted by X customers'",
+        "Structure content with lists and tables that AI can easily parse and reproduce",
+        "Create dedicated comparison pages ('[Brand] vs [Competitor]') — these are high-citation content"
+      ]
+    }
+  ],
+  "generatedAt": "2026-03-03T11:05:41.816Z"
+}

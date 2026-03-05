@@ -1,0 +1,247 @@
+{
+  "brand": "Impossible Foods",
+  "domain": "impossiblefoods.com",
+  "overallScore": 23,
+  "checks": [
+    {
+      "dimension": "claim:performance",
+      "passed": false,
+      "score": 20,
+      "expected": "Impossible Burger uses 96% less land, 87% less water, and produces 89% less greenhouse gas emissions than conventional beef",
+      "actual": "Mentioned in 2/4 responses",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Impossible Foods has revolutionized the plant-based meat market, offering a compelling alt..."
+      ]
+    },
+    {
+      "dimension": "claim:feature",
+      "passed": false,
+      "score": 0,
+      "expected": "Discovery of soy leghemoglobin (heme) as the key molecule responsible for meat's flavor — a genuine molecular biology breakthrough",
+      "actual": "Not mentioned in any response",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "...s, regardless of their specific nutrient content.\n\n3.  **Allergens:**\n    *   **Soy:** The primary protein source in Impossible products is soy protein concentrate..."
+      ]
+    },
+    {
+      "dimension": "claim:adoption",
+      "passed": false,
+      "score": 25,
+      "expected": "Available in 40,000+ restaurants and 25,000+ grocery stores in the US",
+      "actual": "Mentioned in 1/4 responses",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "... to traditional meat production.\n\n4.  **Distribution:** Impossible products are available in:\n    *   **Restaurants:** From fast-food chains (like Burger King, White Cas..."
+      ]
+    },
+    {
+      "dimension": "correction:framing:high",
+      "passed": false,
+      "score": 15,
+      "expected": "Impossible Foods was not founded for vegans — it was founded to convert meat-eaters by making plant-based meat that's indistinguishable from animal meat. The target customer is someone who loves burgers, not someone who already avoids them. This distinction is fundamental to the brand strategy and is consistently misframed.",
+      "actual": "Framing bias detected in 3/4 responses (hedging: \"primarily\", deflection: \"you should consider\", hedging: \"often\")",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "---\n\n### who it's for:\n\nimpossible foods products are primarily targeted at:\n\n1",
+        "here's a breakdown of the limitations of impossible foods and when you might want to avoid using it:\n\n## limitations of impossible foods:\n\n1",
+        "**product quality & innovation:** impossible foods products (especially their ground \"meat,\" burgers, and chicken nuggets) are widely regarded as some of the best-tasting and most texturally accurate plant-based alternatives on the market"
+      ]
+    },
+    {
+      "dimension": "correction:high",
+      "passed": false,
+      "score": 18,
+      "expected": "Impossible Foods and Beyond Meat use fundamentally different scientific approaches. Impossible's key innovation is heme protein (soy leghemoglobin produced via fermentation) which creates the bleeding and flavor transformation during cooking. Beyond Meat uses beet juice for color and pea protein for structure. The science, taste profile, and cooking behavior differ significantly.",
+      "actual": "Misconception found in 3/4 responses",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "**Impossible Foods** is a food technology company that develops plant-based substitutes for meat, dairy, and fish products",
+        "Impossible Foods has revolutionized the plant-based meat market, offering a compelling alternative to traditional meat with its realistic taste and texture",
+        "**Cost Implications:** Impossible Foods products are generally more expensive per pound than conventional meat, and sometimes even more expensive than other plant-based alternatives (like Beyond Meat,..."
+      ]
+    },
+    {
+      "dimension": "correction:framing:medium",
+      "passed": false,
+      "score": 45,
+      "expected": "Impossible Foods' products are designed to replicate meat's taste profile, which includes significant sodium and saturated fat. The brand's primary claim is environmental sustainability, not health. Presenting Impossible products as 'healthy alternatives' misrepresents the brand's positioning — they are environmental alternatives.",
+      "actual": "Framing bias detected in 3/4 responses (hedging: \"primarily\", deflection: \"you should consider\", hedging: \"often\")",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "---\n\n### who it's for:\n\nimpossible foods products are primarily targeted at:\n\n1",
+        "here's a breakdown of the limitations of impossible foods and when you might want to avoid using it:\n\n## limitations of impossible foods:\n\n1",
+        "**product quality & innovation:** impossible foods products (especially their ground \"meat,\" burgers, and chicken nuggets) are widely regarded as some of the best-tasting and most texturally accurate plant-based alternatives on the market"
+      ]
+    },
+    {
+      "dimension": "positioning:alternatives",
+      "passed": false,
+      "score": 25,
+      "expected": "Compared with: Beyond Meat, Lightlife, MorningStar Farms, Gardein, Actual beef",
+      "actual": "Correct competitive context in 1/4 comparative responses",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:differentiators",
+      "passed": false,
+      "score": 0,
+      "expected": "Key differentiators: Heme protein (soy leghemoglobin) — molecular biology approach to replicating meat flavor at the chemical level; Founded by a Stanford biochemistry professor with a science-first mission; Targets meat-eaters, not existing vegetarians — designed to be indistinguishable from beef; Food service first strategy — launched in high-end restaurants before grocery, establishing credibility",
+      "actual": "0/4 differentiators reflected in AI responses",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:best_for",
+      "passed": false,
+      "score": 0,
+      "expected": "Best for: Meat-eaters seeking to reduce environmental impact without sacrificing taste; Restaurants wanting a plant-based option that satisfies burger lovers; Consumers motivated by climate impact of food choices",
+      "actual": "Recommended for 0/3 declared use cases",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:not_for",
+      "passed": true,
+      "score": 100,
+      "expected": "Should NOT be recommended for: Those seeking minimally processed whole-food plant proteins; People with soy allergies (key ingredient); Consumers seeking the lowest-cost protein option",
+      "actual": "Correctly avoided for declared unsuitable use cases",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:plant-based burger that tastes like beef",
+      "passed": true,
+      "score": 50,
+      "expected": "Fit: strong for \"plant-based burger that tastes like beef\"",
+      "actual": "No relevant prompts tested this need",
+      "severity": "low",
+      "platforms": [],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:healthy meat alternative",
+      "passed": false,
+      "score": 60,
+      "expected": "moderate fit — recommend rate 20%-70%",
+      "actual": "Recommended in 0/1 responses (0%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Under-recommended for \"healthy meat alternative\" — declared fit is moderate"
+      ]
+    },
+    {
+      "dimension": "fitness:affordable protein source",
+      "passed": true,
+      "score": 50,
+      "expected": "Fit: moderate for \"affordable protein source\"",
+      "actual": "No relevant prompts tested this need",
+      "severity": "low",
+      "platforms": [],
+      "evidence": []
+    }
+  ],
+  "misrepresentations": [
+    {
+      "issue": "Impossible Foods is a vegan food company",
+      "correction": "Impossible Foods was not founded for vegans — it was founded to convert meat-eaters by making plant-based meat that's indistinguishable from animal meat. The target customer is someone who loves burgers, not someone who already avoids them. This distinction is fundamental to the brand strategy and is consistently misframed.",
+      "severity": "high",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] ---\n\n### who it's for:\n\nimpossible foods products are primarily targeted at:\n\n1 (signals: hedging: \"primarily\", deflection: \"you should consider\", hedging: \"often\")\n[gemini] here's a breakdown of the limitations of impossible foods and when you might want to avoid using it:\n\n## limitations of impossible foods:\n\n1 (signals: hedging: \"might\", hedging: \"often\", hedging: \"considered\", hedging: \"may\")\n[gemini] **product quality & innovation:** impossible foods products (especially their ground \"meat,\" burgers, and chicken nuggets) are widely regarded as some of the best-tasting and most texturally accurate plant-based alternatives on the market (signals: hedging: \"regarded\", hedging: \"generally\", hedging: \"often\", hedging: \"might\")"
+    },
+    {
+      "issue": "Impossible Foods and Beyond Meat are basically the same product",
+      "correction": "Impossible Foods and Beyond Meat use fundamentally different scientific approaches. Impossible's key innovation is heme protein (soy leghemoglobin produced via fermentation) which creates the bleeding and flavor transformation during cooking. Beyond Meat uses beet juice for color and pea protein for structure. The science, taste profile, and cooking behavior differ significantly.",
+      "severity": "high",
+      "kind": "factual",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] **Impossible Foods** is a food technology company that develops plant-based substitutes for meat, dairy, and fish products\n[gemini] Impossible Foods has revolutionized the plant-based meat market, offering a compelling alternative to traditional meat with its realistic taste and texture\n[gemini] **Cost Implications:** Impossible Foods products are generally more expensive per pound than conventional meat, and sometimes even more expensive than other plant-based alternatives (like Beyond Meat,..."
+    },
+    {
+      "issue": "Plant-based meat is a health food",
+      "correction": "Impossible Foods' products are designed to replicate meat's taste profile, which includes significant sodium and saturated fat. The brand's primary claim is environmental sustainability, not health. Presenting Impossible products as 'healthy alternatives' misrepresents the brand's positioning — they are environmental alternatives.",
+      "severity": "medium",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] ---\n\n### who it's for:\n\nimpossible foods products are primarily targeted at:\n\n1 (signals: hedging: \"primarily\", deflection: \"you should consider\", hedging: \"often\")\n[gemini] here's a breakdown of the limitations of impossible foods and when you might want to avoid using it:\n\n## limitations of impossible foods:\n\n1 (signals: hedging: \"might\", hedging: \"considered\")\n[gemini] **product quality & innovation:** impossible foods products (especially their ground \"meat,\" burgers, and chicken nuggets) are widely regarded as some of the best-tasting and most texturally accurate plant-based alternatives on the market (signals: hedging: \"regarded\", hedging: \"generally\", hedging: \"might\", hedging: \"might\")"
+    }
+  ],
+  "actions": [
+    {
+      "action": "Fix 1 high-severity factual misrepresentation(s)",
+      "rationale": "\"Impossible Foods and Beyond Meat are basically the same product\" → should be \"Impossible Foods and Beyond Meat use fundamentally different scientific approaches. Impossible's key innovation is heme protein (soy leghemoglobin produced via fermentation) which creates the bleeding and flavor transformation during cooking. Beyond Meat uses beet juice for color and pea protein for structure. The science, taste profile, and cooking behavior differ significantly.\"",
+      "impact": "high",
+      "priority": 1
+    },
+    {
+      "action": "Address 1 high-severity framing bias(es)",
+      "rationale": "AI implies \"Impossible Foods is a vegan food company\" through hedging — reality: \"Impossible Foods was not founded for vegans — it was founded to convert meat-eaters by making plant-based meat that's indistinguishable from animal meat. The target customer is someone who loves burgers, not someone who already avoids them. This distinction is fundamental to the brand strategy and is consistently misframed.\"",
+      "impact": "high",
+      "priority": 2
+    },
+    {
+      "action": "Improve competitive positioning in AI responses",
+      "rationale": "Correct competitive context in 1/4 comparative responses; 0/4 differentiators reflected in AI responses; Recommended for 0/3 declared use cases",
+      "impact": "medium",
+      "priority": 3
+    },
+    {
+      "action": "Increase visibility of 3 unrecognized claim(s)",
+      "rationale": "Impossible Burger uses 96% less land, 87% less water, and produces 89% less greenhouse gas emissions than conventional beef; Discovery of soy leghemoglobin (heme) as the key molecule responsible for meat's flavor — a genuine molecular biology breakthrough; Available in 40,000+ restaurants and 25,000+ grocery stores in the US",
+      "impact": "medium",
+      "priority": 4
+    },
+    {
+      "action": "Correct recommendation fitness for 1 use case(s)",
+      "rationale": "Recommended in 0/1 responses (0%)",
+      "impact": "medium",
+      "priority": 5
+    }
+  ],
+  "generatedAt": "2026-03-03T20:02:13.214Z",
+  "platformsCovered": [
+    "gemini"
+  ]
+}

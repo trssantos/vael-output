@@ -1,0 +1,7 @@
+{
+  "scannedBrands": [
+    { "slug": "algolia", "brand": "Algolia", "scanFile": "algolia-scan.json", "verifyFile": "algolia-verify.json" },
+    { "slug": "auth0", "brand": "Auth0", "scanFile": "auth0-scan.json", "verifyFile": "auth0-verify.json" },
+    { "slug": "impossible-foods", "brand": "Impossible Foods", "scanFile": "impossible-foods-scan.json", "verifyFile": "impossible-foods-verify.json" }
+  ]
+}

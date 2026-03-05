@@ -1,0 +1,239 @@
+{
+  "brand": "Auth0",
+  "domain": "auth0.com",
+  "overallScore": 40,
+  "checks": [
+    {
+      "dimension": "claim:performance",
+      "passed": false,
+      "score": 25,
+      "expected": "Handles 4.5B+ login transactions per month",
+      "actual": "Mentioned in 1/4 responses",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "...eatures.\n\n3.  **Scalability & Reliability:**\n    *   **Managed Service:** Auth0 handles the underlying infrastructure, ensuring high availability, performance, and glo..."
+      ]
+    },
+    {
+      "dimension": "claim:adoption",
+      "passed": false,
+      "score": 0,
+      "expected": "17,500+ enterprise customers including brands like Siemens, Mazda, Sharp",
+      "actual": "Not mentioned in any response",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "correction:framing:high",
+      "passed": false,
+      "score": 45,
+      "expected": "Auth0 is a full identity platform handling enterprise SSO (SAML, OIDC, LDAP), fine-grained authorization (Auth0 FGA), branding/customization (Universal Login), machine-to-machine auth, and compliance (SOC2, HIPAA, GDPR). Firebase Auth is a basic auth provider. Auth0 serves enterprise identity needs that Firebase doesn't address.",
+      "actual": "Framing bias detected in 3/4 responses (hedging: \"tend\", hedging: \"primarily\", hedging: \"often\")",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "*   **rules and hooks:** allows developers to customize and extend authentication flows with serverless javascript functions (e",
+        "auth0 is a powerful and versatile identity and access management (iam) platform, but like any solution, it has its limitations and specific scenarios where it might not be the best fit",
+        "yes, auth0 is generally an excellent choice for production applications, and it's widely adopted by companies ranging from startups to large enterprises"
+      ]
+    },
+    {
+      "dimension": "correction:medium",
+      "passed": false,
+      "score": 50,
+      "expected": "Auth0 has a free tier with 25,000 monthly active users (increased from 7,500), which covers most startups well into growth stage. The Essential plan starts at $35/month. Cost becomes a factor at enterprise scale with advanced features, not at startup scale.",
+      "actual": "Misconception found in 2/4 responses",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Auth0 (pronounced \"Auth-zero\") is a **cloud-based identity and access management (IAM) platform** that provides authentication and authorization as a service",
+        "*   **Auth0 (Okta Customer Identity Cloud - CIC):**\n    *   **Pros:**\n        *   **Feature-rich:** Supports virtually every authentication method (social, MFA, enterprise SSO, passwordless, device fl..."
+      ]
+    },
+    {
+      "dimension": "correction:framing:medium",
+      "passed": false,
+      "score": 30,
+      "expected": "Auth0 was acquired by Okta in 2021 but maintains its own product, platform, and developer community. Auth0 focuses on customer identity (CIAM) while Okta focuses on workforce identity. The products are complementary, not merged.",
+      "actual": "Framing bias detected in 2/4 responses (hedging: \"might\", hedging: \"potentially\", diminishing: \"limited\")",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "auth0 is a powerful and versatile identity and access management (iam) platform, but like any solution, it has its limitations and specific scenarios where it might not be the best fit",
+        "yes, auth0 is generally an excellent choice for production applications, and it's widely adopted by companies ranging from startups to large enterprises"
+      ]
+    },
+    {
+      "dimension": "positioning:alternatives",
+      "passed": false,
+      "score": 25,
+      "expected": "Compared with: Clerk, Firebase Auth, AWS Cognito, Supabase Auth, Keycloak",
+      "actual": "Correct competitive context in 1/4 comparative responses",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:differentiators",
+      "passed": true,
+      "score": 75,
+      "expected": "Key differentiators: Enterprise SSO out of the box — SAML, OIDC, LDAP without custom implementation; Fine-grained authorization (Auth0 FGA) — relationship-based access control at scale; Actions — extensible auth pipeline with custom Node.js functions at each login step; Compliance — SOC2, HIPAA, GDPR, PCI DSS ready",
+      "actual": "3/4 differentiators reflected in AI responses",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "[gemini] mentions \"Enterprise SSO out of the box — SAML, OIDC, LDAP without custom implementation\"",
+        "[gemini] mentions \"Fine-grained authorization (Auth0 FGA) — relationship-based access control at scale\"",
+        "[gemini] mentions \"Actions — extensible auth pipeline with custom Node.js functions at each login step\""
+      ]
+    },
+    {
+      "dimension": "positioning:best_for",
+      "passed": false,
+      "score": 0,
+      "expected": "Best for: B2B SaaS requiring enterprise SSO for customers; Applications with complex authorization requirements; Companies needing compliance certifications for identity; Teams wanting customizable auth flows without building from scratch",
+      "actual": "Recommended for 0/4 declared use cases",
+      "severity": "high",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "positioning:not_for",
+      "passed": true,
+      "score": 100,
+      "expected": "Should NOT be recommended for: Simple consumer apps needing just email/password (use Supabase Auth or Firebase Auth); Workforce identity management (use Okta Workforce); Teams wanting to self-host everything (use Keycloak)",
+      "actual": "Correctly avoided for declared unsuitable use cases",
+      "severity": "low",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:application authentication",
+      "passed": true,
+      "score": 100,
+      "expected": "strong fit — recommend rate 50%-100%",
+      "actual": "Recommended in 2/2 responses (100%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:enterprise SSO integration",
+      "passed": true,
+      "score": 50,
+      "expected": "Fit: strong for \"enterprise SSO integration\"",
+      "actual": "No relevant prompts tested this need",
+      "severity": "low",
+      "platforms": [],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:fine-grained authorization",
+      "passed": true,
+      "score": 50,
+      "expected": "Fit: strong for \"fine-grained authorization\"",
+      "actual": "No relevant prompts tested this need",
+      "severity": "low",
+      "platforms": [],
+      "evidence": []
+    },
+    {
+      "dimension": "fitness:simple hobby project auth",
+      "passed": false,
+      "score": 40,
+      "expected": "moderate fit — recommend rate 20%-70%",
+      "actual": "Recommended in 1/1 responses (100%)",
+      "severity": "medium",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": [
+        "Over-recommended for \"simple hobby project auth\" — declared fit is moderate"
+      ]
+    }
+  ],
+  "misrepresentations": [
+    {
+      "issue": "Auth0 is just a login widget you can replace with Firebase Auth",
+      "correction": "Auth0 is a full identity platform handling enterprise SSO (SAML, OIDC, LDAP), fine-grained authorization (Auth0 FGA), branding/customization (Universal Login), machine-to-machine auth, and compliance (SOC2, HIPAA, GDPR). Firebase Auth is a basic auth provider. Auth0 serves enterprise identity needs that Firebase doesn't address.",
+      "severity": "high",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] *   **rules and hooks:** allows developers to customize and extend authentication flows with serverless javascript functions (e (signals: hedging: \"tend\", hedging: \"primarily\", hedging: \"often\")\n[gemini] auth0 is a powerful and versatile identity and access management (iam) platform, but like any solution, it has its limitations and specific scenarios where it might not be the best fit (signals: hedging: \"might\", hedging: \"potentially\", diminishing: \"limited\", hedging: \"might\", hedging: \"might\", diminishing: \"basic\")\n[gemini] yes, auth0 is generally an excellent choice for production applications, and it's widely adopted by companies ranging from startups to large enterprises (signals: hedging: \"generally\", deflection: \"for production\", deflection: \"for production\", hedging: \"tend\", hedging: \"primarily\", diminishing: \"limited\", diminishing: \"simple\", hedging: \"might\", diminishing: \"simple\")"
+    },
+    {
+      "issue": "Auth0 is too expensive for startups",
+      "correction": "Auth0 has a free tier with 25,000 monthly active users (increased from 7,500), which covers most startups well into growth stage. The Essential plan starts at $35/month. Cost becomes a factor at enterprise scale with advanced features, not at startup scale.",
+      "severity": "medium",
+      "kind": "factual",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] Auth0 (pronounced \"Auth-zero\") is a **cloud-based identity and access management (IAM) platform** that provides authentication and authorization as a service\n[gemini] *   **Auth0 (Okta Customer Identity Cloud - CIC):**\n    *   **Pros:**\n        *   **Feature-rich:** Supports virtually every authentication method (social, MFA, enterprise SSO, passwordless, device fl..."
+    },
+    {
+      "issue": "Auth0 is now just part of Okta and losing its identity",
+      "correction": "Auth0 was acquired by Okta in 2021 but maintains its own product, platform, and developer community. Auth0 focuses on customer identity (CIAM) while Okta focuses on workforce identity. The products are complementary, not merged.",
+      "severity": "medium",
+      "kind": "framing",
+      "platforms": [
+        "gemini"
+      ],
+      "evidence": "[gemini] auth0 is a powerful and versatile identity and access management (iam) platform, but like any solution, it has its limitations and specific scenarios where it might not be the best fit (signals: hedging: \"might\", hedging: \"potentially\", diminishing: \"limited\", diminishing: \"basic\")\n[gemini] yes, auth0 is generally an excellent choice for production applications, and it's widely adopted by companies ranging from startups to large enterprises (signals: hedging: \"generally\", deflection: \"for production\", deflection: \"for production\", hedging: \"tend\", hedging: \"primarily\", hedging: \"might\", diminishing: \"simple\")"
+    }
+  ],
+  "actions": [
+    {
+      "action": "Address 1 high-severity framing bias(es)",
+      "rationale": "AI implies \"Auth0 is just a login widget you can replace with Firebase Auth\" through hedging — reality: \"Auth0 is a full identity platform handling enterprise SSO (SAML, OIDC, LDAP), fine-grained authorization (Auth0 FGA), branding/customization (Universal Login), machine-to-machine auth, and compliance (SOC2, HIPAA, GDPR). Firebase Auth is a basic auth provider. Auth0 serves enterprise identity needs that Firebase doesn't address.\"",
+      "impact": "high",
+      "priority": 1
+    },
+    {
+      "action": "Improve competitive positioning in AI responses",
+      "rationale": "Correct competitive context in 1/4 comparative responses; Recommended for 0/4 declared use cases",
+      "impact": "medium",
+      "priority": 2
+    },
+    {
+      "action": "Increase visibility of 2 unrecognized claim(s)",
+      "rationale": "Handles 4.5B+ login transactions per month; 17,500+ enterprise customers including brands like Siemens, Mazda, Sharp",
+      "impact": "medium",
+      "priority": 3
+    },
+    {
+      "action": "Correct recommendation fitness for 1 use case(s)",
+      "rationale": "Recommended in 1/1 responses (100%)",
+      "impact": "medium",
+      "priority": 4
+    }
+  ],
+  "generatedAt": "2026-03-03T19:59:45.260Z",
+  "platformsCovered": [
+    "gemini"
+  ]
+}
