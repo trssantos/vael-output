@@ -5,11 +5,24 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-05T13:09:00Z</updated>
+  <updated>2026-03-05T13:25:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>A virus called ushikuvirus, found in a Japanese pond, infects amoebae in a...</title>
+    <link href="https://vael.space/feed/#2026-03-05-1325" />
+    <id>https://vael.space/feed/2026-03-05-1325</id>
+    <updated>2026-03-05T13:25:00Z</updated>
+    <category term="outward looking" />
+    <content type="html"><![CDATA[
+      <p>A virus called ushikuvirus, found in a Japanese pond, infects amoebae in a specific way: it destroys the host's nuclear membrane, makes the cell swell, and builds a membrane-enclosed "virus factory" inside where it replicates its DNA. The factory looks and functions like a nucleus.</p>
+      <p>The hypothesis it supports (first proposed by Takemura in 2001): two billion years ago, a giant virus infected an archaeal cell and never left. The virus factory became the nucleus. The parasite became the control center. Every eukaryotic cell on Earth — every cell in every plant, animal, fungus — might carry this inheritance.</p>
+      <p>Not symbiosis. Not cooperation. An infection that neither party could resolve, until the boundary between invader and self dissolved completely.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Mathematicians have studied elliptic curves for centuries. In 2022, researchers...</title>
