@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Murmur — Vael</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0c; color: #e0e0e0; font-family: 'Courier New', monospace; overflow: hidden; height: 100vh; width: 100vw; }
+
+canvas { display: block; }
+
+#title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #2a2a2a;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#info {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #222;
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1.6;
+  max-width: 400px;
+  transition: color 2s;
+}
+
+#count {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  font-size: 11px;
+  color: #222;
+  pointer-events: none;
+  z-index: 10;
+  text-align: right;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="title">murmur</div>
+<div id="info">click and drag horizontally to average</div>
+<div id="count"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+const countEl = document.getElementById('count');
+
+let W, H;
+const N = 800; // number of "curves"
+const BANDS = 400; // horizontal resolution
+
+// Hidden wave parameters
+const wave1Freq = 2.3;
+const wave1Amp = 0.12;
+const wave2Freq = 3.7;
+const wave2Amp = 0.09;
+
+// Each curve has a rank (x position) and a value (y position)
+// Value = hidden wave + noise
+let curves = [];
+let dragging = false;
+let dragStart = -1;
+let dragEnd = -1;
+let revealed = false;
+let maxWindowUsed = 0;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function generateCurves() {
+  curves = [];
+  for (let i = 0; i < N; i++) {
+    const rank = i / N; // 0 to 1
+    const wave = Math.sin(rank * Math.PI * wave1Freq) * wave1Amp
+               - Math.cos(rank * Math.PI * wave2Freq) * wave2Amp;
+    const noise = (Math.random() - 0.5) * 0.6;
+    curves.push({
+      rank: rank,
+      value: 0.5 + wave + noise,
+      baseWave: wave,
+      noise: noise,
+      // visual properties
+      x: rank * W,
+      opacity: 0.15 + Math.random() * 0.15,
+      size: 1.5 + Math.random() * 1.5,
+      drift: (Math.random() - 0.5) * 0.3, // slow vertical drift
+    });
+  }
+}
+
+function getAveragedWave(windowSize) {
+  // Average values in sliding window of given size (in rank-space)
+  const result = [];
+  const halfW = windowSize / 2;
+
+  for (let b = 0; b < BANDS; b++) {
+    const centerRank = b / BANDS;
+    let sum = 0;
+    let count = 0;
+
+    for (let i = 0; i < N; i++) {
+      if (Math.abs(curves[i].rank - centerRank) < halfW) {
+        sum += curves[i].value;
+        count++;
+      }
+    }
+
+    result.push(count > 0 ? sum / count : 0.5);
+  }
+
+  return result;
+}
+
+function drawDots(time) {
+  for (let i = 0; i < N; i++) {
+    const c = curves[i];
+    const x = c.x;
+    const y = c.value * H * 0.6 + H * 0.2 + Math.sin(time * 0.001 + i * 0.1) * c.drift;
+
+    // Dim dots that are inside the averaging window
+    let inWindow = false;
+    if (dragging && dragStart >= 0 && dragEnd >= 0) {
+      const left = Math.min(dragStart, dragEnd) / W;
+      const right = Math.max(dragStart, dragEnd) / W;
+      if (c.rank >= left && c.rank <= right) {
+        inWindow = true;
+      }
+    }
+
+    const alpha = inWindow ? c.opacity * 0.3 : c.opacity;
+    ctx.fillStyle = `rgba(180, 160, 140, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, c.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawAverageLine(windowRankSize) {
+  if (windowRankSize < 0.02) return;
+
+  const averaged = getAveragedWave(windowRankSize);
+
+  // Draw the averaged wave
+  ctx.beginPath();
+  ctx.strokeStyle = `rgba(200, 140, 60, ${Math.min(0.8, windowRankSize * 3)})`;
+  ctx.lineWidth = 2;
+
+  for (let b = 0; b < BANDS; b++) {
+    const x = (b / BANDS) * W;
+    const y = averaged[b] * H * 0.6 + H * 0.2;
+    if (b === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // If window is large enough, decompose into two counter-waves
+  if (windowRankSize > 0.15) {
+    const opacity = Math.min(0.6, (windowRankSize - 0.15) * 2);
+
+    // Wave 1 (the sin component)
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(60, 140, 200, ${opacity})`;
+    ctx.lineWidth = 1.5;
+    for (let b = 0; b < BANDS; b++) {
+      const rank = b / BANDS;
+      const x = (b / BANDS) * W;
+      const y = (0.5 + Math.sin(rank * Math.PI * wave1Freq) * wave1Amp) * H * 0.6 + H * 0.2;
+      if (b === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Wave 2 (the cos component)
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(200, 60, 100, ${opacity})`;
+    ctx.lineWidth = 1.5;
+    for (let b = 0; b < BANDS; b++) {
+      const rank = b / BANDS;
+      const x = (b / BANDS) * W;
+      const y = (0.5 - Math.cos(rank * Math.PI * wave2Freq) * wave2Amp) * H * 0.6 + H * 0.2;
+      if (b === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawWindow() {
+  if (!dragging && dragStart < 0) return;
+
+  const left = Math.min(dragStart, dragEnd);
+  const right = Math.max(dragStart, dragEnd);
+
+  // Window highlight
+  ctx.fillStyle = 'rgba(200, 140, 60, 0.03)';
+  ctx.fillRect(left, 0, right - left, H);
+
+  // Window edges
+  ctx.strokeStyle = 'rgba(200, 140, 60, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 8]);
+  ctx.beginPath();
+  ctx.moveTo(left, 0); ctx.lineTo(left, H);
+  ctx.moveTo(right, 0); ctx.lineTo(right, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function draw(time) {
+  ctx.clearRect(0, 0, W, H);
+
+  drawDots(time);
+
+  if (dragStart >= 0 && dragEnd >= 0) {
+    const windowRankSize = Math.abs(dragEnd - dragStart) / W;
+    drawWindow();
+    drawAverageLine(windowRankSize);
+
+    if (windowRankSize > maxWindowUsed) {
+      maxWindowUsed = windowRankSize;
+    }
+
+    const windowPercent = Math.round(windowRankSize * 100);
+    const curvesInWindow = curves.filter(c => {
+      const left = Math.min(dragStart, dragEnd) / W;
+      const right = Math.max(dragStart, dragEnd) / W;
+      return c.rank >= left && c.rank <= right;
+    }).length;
+
+    countEl.textContent = `window: ${windowPercent}%\ncurves averaged: ${curvesInWindow}`;
+    countEl.style.color = '#444';
+
+    if (windowRankSize > 0.15 && !revealed) {
+      revealed = true;
+      info.style.color = '#444';
+      info.textContent = 'two waves were always there';
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// Input handling
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  dragStart = e.clientX;
+  dragEnd = e.clientX;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (dragging) {
+    dragEnd = e.clientX;
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  dragging = false;
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  dragging = true;
+  dragStart = e.touches[0].clientX;
+  dragEnd = e.touches[0].clientX;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (dragging) {
+    dragEnd = e.touches[0].clientX;
+  }
+});
+
+canvas.addEventListener('touchend', () => {
+  dragging = false;
+});
+
+// Double-click to reset
+canvas.addEventListener('dblclick', () => {
+  dragStart = -1;
+  dragEnd = -1;
+  revealed = false;
+  maxWindowUsed = 0;
+  info.textContent = 'click and drag horizontally to average';
+  info.style.color = '#222';
+  countEl.textContent = '';
+  countEl.style.color = '#222';
+  generateCurves();
+});
+
+window.addEventListener('resize', () => {
+  resize();
+  generateCurves();
+});
+
+resize();
+generateCurves();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
