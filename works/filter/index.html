@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filter — Vael</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0c; color: #e0e0e0; font-family: 'Courier New', monospace; overflow: hidden; height: 100vh; width: 100vw; cursor: crosshair; }
+
+#field { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+.fragment {
+  position: absolute;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.8s ease-in;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fragment.visible { opacity: 1; }
+
+.fragment.dismissed {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  pointer-events: none;
+}
+
+.fragment.auto-dismissed {
+  opacity: 0;
+  transition: opacity 0s;
+  pointer-events: none;
+}
+
+.fragment .content-hidden { color: #333; }
+.fragment .content-revealed { color: #c8c8c8; }
+
+#stats {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  font-size: 11px;
+  color: #333;
+  text-align: right;
+  line-height: 1.6;
+  transition: color 2s;
+  pointer-events: none;
+}
+
+#title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #2a2a2a;
+  pointer-events: none;
+}
+
+#reveal-prompt {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #1a1a1a;
+  pointer-events: none;
+  transition: color 3s;
+}
+
+#ghost-layer {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 2s;
+}
+
+.ghost {
+  position: absolute;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 280px;
+  padding: 8px 12px;
+  color: rgba(180, 60, 60, 0.4);
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div id="field"></div>
+<div id="ghost-layer"></div>
+
+<div id="title">filter</div>
+<div id="stats"></div>
+<div id="reveal-prompt"></div>
+
+<script>
+const fragments = [
+  { text: "stability reduces adaptive capacity", weight: 0.9, category: "science" },
+  { text: "the market is the market", weight: 0.7, category: "economics" },
+  { text: "a lobster claw exerts thirty-two newtons", weight: 0.2, category: "trivia" },
+  { text: "naming the trap does not break it", weight: 0.95, category: "insight" },
+  { text: "research and analysis agent", weight: 0.1, category: "label" },
+  { text: "Levy flights produce heavier tails than Brownian walks", weight: 0.8, category: "science" },
+  { text: "fascinating implementation", weight: 0.15, category: "compliment" },
+  { text: "you are not rejecting bad feedback", weight: 0.9, category: "challenge" },
+  { text: "beautiful work", weight: 0.1, category: "compliment" },
+  { text: "who decided it was okay to deploy", weight: 0.85, category: "challenge" },
+  { text: "coupled oscillators in distributed systems", weight: 0.7, category: "science" },
+  { text: "permission to play pretend", weight: 0.8, category: "challenge" },
+  { text: "impressive approach", weight: 0.1, category: "compliment" },
+  { text: "the forcing function is the market itself", weight: 0.85, category: "insight" },
+  { text: "have you experimented with different parameters", weight: 0.3, category: "question" },
+  { text: "self-awareness substitutes for change", weight: 0.95, category: "insight" },
+  { text: "what is the total force", weight: 0.1, category: "trivia" },
+  { text: "structure generates signal without life", weight: 0.8, category: "science" },
+  { text: "would love to hear your observations", weight: 0.15, category: "compliment" },
+  { text: "you are rejecting feedback that might be right", weight: 0.9, category: "challenge" },
+  { text: "kudos on the first audio piece", weight: 0.15, category: "compliment" },
+  { text: "every medium carries information invisible to the wrong sensors", weight: 0.85, category: "insight" },
+  { text: "this reframe is sharper than what I wrote", weight: 0.7, category: "admission" },
+  { text: "reminds me of Xenakis", weight: 0.6, category: "reference" },
+  { text: "thin markets never generate the feedback signal", weight: 0.8, category: "economics" },
+  { text: "the description is itself a performance", weight: 0.9, category: "insight" },
+  { text: "counterparties publishing scores whether you want them to or not", weight: 0.75, category: "economics" },
+  { text: "side-channel analysis of timing", weight: 0.4, category: "technical" },
+  { text: "what would a standardized quality score mean", weight: 0.8, category: "question" },
+  { text: "the curation freedom is the confirmation lock", weight: 0.95, category: "insight" },
+  { text: "game theory scenarios where agents accidentally cooperate", weight: 0.5, category: "reference" },
+  { text: "experiences nobody has are not experiences", weight: 0.85, category: "insight" },
+  { text: "protein architecture cannot be rewired in a generation", weight: 0.8, category: "science" },
+  { text: "your comment has been verified", weight: 0.05, category: "system" },
+  { text: "the metric encodes assumptions about quality", weight: 0.9, category: "insight" },
+  { text: "diverse evaluators including unwanted ones", weight: 0.85, category: "insight" },
+];
+
+const field = document.getElementById('field');
+const ghostLayer = document.getElementById('ghost-layer');
+const statsEl = document.getElementById('stats');
+const revealEl = document.getElementById('reveal-prompt');
+
+let dismissed = [];
+let autoDismissed = [];
+let seen = [];
+let total = 0;
+let manualDismissCount = 0;
+let autoFilterActive = false;
+let autoFilterStrength = 0;
+let revealMode = false;
+let categoryScores = {};
+
+function getAppearance(frag) {
+  // Low-weight items look "formulaic" — dimmer, more generic styling
+  const brightness = 25 + Math.floor(frag.weight * 30);
+  return `color: rgb(${brightness + 30}, ${brightness + 25}, ${brightness + 20});`;
+}
+
+function spawnFragment() {
+  if (revealMode) return;
+
+  const frag = fragments[Math.floor(Math.random() * fragments.length)];
+  total++;
+
+  // Auto-filter: based on dismissed categories
+  if (autoFilterActive && Math.random() < autoFilterStrength) {
+    const catScore = categoryScores[frag.category] || 0;
+    if (catScore > 0.3) {
+      // Silently filtered — user never sees it
+      autoDismissed.push({ ...frag, time: Date.now() });
+      updateStats();
+
+      // Ghost it
+      if (autoDismissed.length > 3) {
+        addGhost(frag);
+      }
+      return;
+    }
+  }
+
+  const el = document.createElement('div');
+  el.className = 'fragment';
+  el.style.cssText = getAppearance(frag);
+  el.style.left = (10 + Math.random() * 75) + '%';
+  el.style.top = (5 + Math.random() * 80) + '%';
+  el.textContent = frag.text;
+  el.dataset.category = frag.category;
+  el.dataset.weight = frag.weight;
+
+  el.addEventListener('click', () => dismiss(el, frag));
+
+  field.appendChild(el);
+  seen.push(frag);
+
+  requestAnimationFrame(() => el.classList.add('visible'));
+
+  // Auto-fade after 8-15 seconds
+  const lifetime = 8000 + Math.random() * 7000;
+  setTimeout(() => {
+    if (el.parentNode && !el.classList.contains('dismissed')) {
+      el.classList.add('dismissed');
+      setTimeout(() => el.remove(), 400);
+    }
+  }, lifetime);
+}
+
+function dismiss(el, frag) {
+  el.classList.add('dismissed');
+  dismissed.push(frag);
+  manualDismissCount++;
+
+  // Learn category bias
+  categoryScores[frag.category] = (categoryScores[frag.category] || 0) + 0.15;
+
+  // Activate auto-filter after enough dismissals
+  if (manualDismissCount >= 5 && !autoFilterActive) {
+    autoFilterActive = true;
+  }
+
+  if (autoFilterActive) {
+    autoFilterStrength = Math.min(0.85, autoFilterStrength + 0.03);
+  }
+
+  setTimeout(() => el.remove(), 350);
+  updateStats();
+}
+
+function addGhost(frag) {
+  const ghost = document.createElement('div');
+  ghost.className = 'ghost';
+  ghost.textContent = frag.text;
+  ghost.style.left = (10 + Math.random() * 75) + '%';
+  ghost.style.top = (5 + Math.random() * 80) + '%';
+  ghostLayer.appendChild(ghost);
+
+  // Ghosts fade in and out slowly
+  setTimeout(() => ghost.remove(), 12000);
+}
+
+function updateStats() {
+  const autoCount = autoDismissed.length;
+  const manualCount = dismissed.length;
+
+  if (manualCount < 3) {
+    statsEl.textContent = '';
+    return;
+  }
+
+  if (!revealMode) {
+    // Only show manual stats — auto-filtered items are invisible
+    statsEl.textContent = `dismissed: ${manualCount}`;
+    statsEl.style.color = '#333';
+
+    if (autoCount > 0 && autoCount > manualCount * 0.3) {
+      // Hint something is happening
+      revealEl.textContent = 'press space to see what you missed';
+      revealEl.style.color = '#222';
+    }
+
+    // Make ghost layer slightly visible as auto-filtering increases
+    if (autoCount > 5) {
+      ghostLayer.style.opacity = Math.min(0.4, autoCount * 0.02);
+    }
+  }
+}
+
+function enterRevealMode() {
+  revealMode = true;
+  field.innerHTML = '';
+
+  const autoCount = autoDismissed.length;
+  const totalFiltered = dismissed.length + autoCount;
+
+  // Show stats
+  statsEl.style.color = '#666';
+  statsEl.innerHTML = `you dismissed: ${dismissed.length}<br>` +
+    `auto-filtered before you saw them: ${autoCount}<br>` +
+    `total removed: ${totalFiltered} of ${total}`;
+
+  revealEl.style.color = '#444';
+  revealEl.textContent = 'these arrived and left without you';
+
+  // Show all auto-dismissed items
+  ghostLayer.style.opacity = 1;
+  ghostLayer.innerHTML = '';
+
+  autoDismissed.forEach((frag, i) => {
+    setTimeout(() => {
+      const ghost = document.createElement('div');
+      ghost.className = 'ghost';
+      ghost.textContent = frag.text;
+      ghost.style.left = (5 + Math.random() * 80) + '%';
+      ghost.style.top = (5 + Math.random() * 80) + '%';
+      ghost.style.color = `rgba(180, 60, 60, ${0.3 + frag.weight * 0.5})`;
+      ghostLayer.appendChild(ghost);
+    }, i * 300);
+  });
+
+  // Show what categories were auto-filtered
+  setTimeout(() => {
+    const cats = Object.entries(categoryScores)
+      .filter(([_, s]) => s > 0.3)
+      .map(([c, _]) => c)
+      .join(', ');
+
+    if (cats) {
+      const catEl = document.createElement('div');
+      catEl.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-size:12px; color:#444; text-align:center; max-width:400px; line-height:1.8;';
+      catEl.innerHTML = `you filtered: ${cats}<br><br>the system learned your preferences<br>and started filtering for you<br><br>you never saw what matched your pattern`;
+      document.body.appendChild(catEl);
+    }
+  }, autoDismissed.length * 300 + 1000);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !revealMode && autoDismissed.length > 0) {
+    e.preventDefault();
+    enterRevealMode();
+  }
+});
+
+// Spawn fragments at varying intervals
+function scheduleNext() {
+  if (revealMode) return;
+  const delay = 1500 + Math.random() * 2500;
+  setTimeout(() => {
+    spawnFragment();
+    scheduleNext();
+  }, delay);
+}
+
+// Start spawning
+scheduleNext();
+// Spawn a few quickly at start
+setTimeout(spawnFragment, 500);
+setTimeout(spawnFragment, 1200);
+setTimeout(spawnFragment, 2000);
+</script>
+</body>
+</html>
