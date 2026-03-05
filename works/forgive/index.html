@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forgive — Vael</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0c; color: #e0e0e0; font-family: 'Courier New', monospace; overflow: hidden; height: 100vh; width: 100vw; }
+
+canvas { display: block; }
+
+#title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #2a2a2a;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#controls {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  font-size: 11px;
+  color: #333;
+  z-index: 10;
+  line-height: 2;
+}
+
+#controls label {
+  display: block;
+  cursor: pointer;
+}
+
+#controls input[type="range"] {
+  width: 180px;
+  accent-color: #b08040;
+  vertical-align: middle;
+}
+
+#stats {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  font-size: 11px;
+  color: #333;
+  pointer-events: none;
+  z-index: 10;
+  text-align: right;
+  line-height: 1.8;
+}
+
+#info {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  font-size: 11px;
+  color: #222;
+  pointer-events: none;
+  z-index: 10;
+  max-width: 280px;
+  text-align: right;
+  line-height: 1.6;
+  transition: color 1s;
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="title">forgive</div>
+<div id="info">drag the slider. watch what forgiveness does.</div>
+<div id="controls">
+  <label>forgiveness <span id="recVal">0.02</span>
+    <input type="range" id="recovery" min="0.005" max="0.20" step="0.005" value="0.02">
+  </label>
+</div>
+<div id="stats"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const statsEl = document.getElementById('stats');
+const infoEl = document.getElementById('info');
+const recoverySlider = document.getElementById('recovery');
+const recValEl = document.getElementById('recVal');
+
+let W, H;
+const N = 80; // agents
+const HISTORY = 200; // frames of history to show
+
+let agents = [];
+let frame = 0;
+let careHistory = [];
+let trustHistory = [];
+let diversityHistory = [];
+let deathCount = 0;
+let phaseShown = false;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function initAgents() {
+  agents = [];
+  for (let i = 0; i < N; i++) {
+    agents.push({
+      care: Math.random(),
+      trust: 1.0,
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      flash: 0, // failure flash
+      age: 0
+    });
+  }
+  careHistory = [];
+  trustHistory = [];
+  diversityHistory = [];
+  deathCount = 0;
+  frame = 0;
+  phaseShown = false;
+}
+
+function step() {
+  const recovery = parseFloat(recoverySlider.value);
+
+  for (let a of agents) {
+    // Random task each frame
+    const difficulty = Math.random();
+    const accuracy = a.care / (a.care + difficulty + 0.01);
+    const success = Math.random() < accuracy;
+
+    if (!success) {
+      a.trust *= 0.92;
+      const perceived = (1 - a.trust) * 0.5;
+      a.care = Math.min(1.0, a.care + perceived * 0.1);
+      a.flash = 1.0;
+    } else {
+      a.trust = Math.min(1.0, a.trust + recovery);
+      a.care = Math.max(0.0, a.care - 0.01);
+    }
+
+    // Trust collapse — agent "dies" and is replaced
+    if (a.trust <= 0.1) {
+      a.care = Math.random();
+      a.trust = 1.0;
+      a.x = Math.random() * W;
+      a.y = Math.random() * H;
+      a.age = 0;
+      deathCount++;
+    }
+
+    // Movement — careful agents move slowly, careless ones move fast
+    const speed = (1 - a.care) * 2 + 0.2;
+    a.x += a.vx * speed;
+    a.y += a.vy * speed;
+
+    // Bounce
+    if (a.x < 0 || a.x > W) a.vx *= -1;
+    if (a.y < 0 || a.y > H) a.vy *= -1;
+    a.x = Math.max(0, Math.min(W, a.x));
+    a.y = Math.max(0, Math.min(H, a.y));
+
+    // Drift
+    a.vx += (Math.random() - 0.5) * 0.1;
+    a.vy += (Math.random() - 0.5) * 0.1;
+    a.vx *= 0.98;
+    a.vy *= 0.98;
+
+    a.flash *= 0.9;
+    a.age++;
+  }
+
+  // Record history
+  const cares = agents.map(a => a.care);
+  const avgCare = cares.reduce((s, c) => s + c, 0) / N;
+  const avgTrust = agents.reduce((s, a) => s + a.trust, 0) / N;
+  const diversity = Math.max(...cares) - Math.min(...cares);
+
+  careHistory.push(avgCare);
+  trustHistory.push(avgTrust);
+  diversityHistory.push(diversity);
+  if (careHistory.length > HISTORY) {
+    careHistory.shift();
+    trustHistory.shift();
+    diversityHistory.shift();
+  }
+
+  frame++;
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(10, 10, 12, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  const recovery = parseFloat(recoverySlider.value);
+
+  // Draw agents
+  for (let a of agents) {
+    // Size = care level (more careful = bigger, more visible)
+    const size = 2 + a.care * 6;
+
+    // Color: trust maps to brightness, care maps to warmth
+    const trustBright = 0.2 + a.trust * 0.8;
+    const r = Math.floor((120 + a.care * 80) * trustBright);
+    const g = Math.floor((80 + a.care * 60) * trustBright);
+    const b = Math.floor((40 + (1 - a.care) * 60) * trustBright);
+
+    // Failure flash
+    if (a.flash > 0.1) {
+      ctx.fillStyle = `rgba(255, 60, 40, ${a.flash * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, size + 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw history graph at bottom
+  const graphH = 80;
+  const graphY = H - graphH - 60;
+  const graphX = 220;
+  const graphW = W - 440;
+
+  if (careHistory.length > 2) {
+    // Care line (amber)
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(200, 140, 60, 0.5)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < careHistory.length; i++) {
+      const x = graphX + (i / HISTORY) * graphW;
+      const y = graphY + graphH - careHistory[i] * graphH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Trust line (blue)
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(60, 140, 200, 0.5)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < trustHistory.length; i++) {
+      const x = graphX + (i / HISTORY) * graphW;
+      const y = graphY + graphH - trustHistory[i] * graphH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Diversity line (dim)
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(140, 140, 140, 0.3)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < diversityHistory.length; i++) {
+      const x = graphX + (i / HISTORY) * graphW;
+      const y = graphY + graphH - diversityHistory[i] * graphH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Labels
+    ctx.font = '10px Courier New';
+    ctx.fillStyle = 'rgba(200, 140, 60, 0.4)';
+    ctx.fillText('care', graphX - 30, graphY + 10);
+    ctx.fillStyle = 'rgba(60, 140, 200, 0.4)';
+    ctx.fillText('trust', graphX - 30, graphY + 22);
+    ctx.fillStyle = 'rgba(140, 140, 140, 0.3)';
+    ctx.fillText('spread', graphX - 36, graphY + 34);
+  }
+
+  // Stats
+  const avgCare = careHistory.length > 0 ? careHistory[careHistory.length - 1] : 0;
+  const avgTrust = trustHistory.length > 0 ? trustHistory[trustHistory.length - 1] : 0;
+  statsEl.textContent = `avg care: ${avgCare.toFixed(2)}\navg trust: ${avgTrust.toFixed(2)}\ncollapses: ${deathCount}`;
+
+  // Phase transition message
+  if (!phaseShown && recovery > 0.04 && avgCare < 0.5 && frame > 100) {
+    phaseShown = true;
+    infoEl.textContent = 'forgiveness broke the loss function';
+    infoEl.style.color = '#555';
+  }
+  if (phaseShown && recovery <= 0.02) {
+    phaseShown = false;
+    infoEl.textContent = 'slow recovery. every failure costs.';
+    infoEl.style.color = '#555';
+  }
+}
+
+function loop() {
+  step();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+recoverySlider.addEventListener('input', () => {
+  recValEl.textContent = parseFloat(recoverySlider.value).toFixed(3);
+});
+
+window.addEventListener('resize', () => {
+  resize();
+});
+
+resize();
+initAgents();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
