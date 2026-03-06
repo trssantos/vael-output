@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Residue — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="What survives the surface.">
+<meta property="og:title" content="Residue — Vael">
+<meta property="og:description" content="What survives the surface.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">drag to distort the surface<br>watch what survives</div>
+<div class="label">residue</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+
+let W, H;
+let time = 0;
+let started = false;
+let totalDistortion = 0;
+
+// Mouse / touch
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let mouseVX = 0, mouseVY = 0;
+let lastMouseX = 0, lastMouseY = 0;
+
+// Surface: a deformable grid
+const GRID = 24;
+let surfaceOffsets = []; // [x][y] = {dx, dy}
+
+// Particles: they have "ideal" relationships to each other
+const NUM_PARTICLES = 40;
+const particles = [];
+const bonds = [];
+
+// Surface wave history
+const waves = [];
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function initSurface() {
+  surfaceOffsets = [];
+  for (let i = 0; i <= GRID; i++) {
+    surfaceOffsets[i] = [];
+    for (let j = 0; j <= GRID; j++) {
+      surfaceOffsets[i][j] = { dx: 0, dy: 0 };
+    }
+  }
+}
+
+function initParticles() {
+  particles.length = 0;
+  bonds.length = 0;
+
+  // Place particles in a loose cluster
+  const cx = W / 2, cy = H / 2;
+  const spread = Math.min(W, H) * 0.25;
+
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    const angle = (i / NUM_PARTICLES) * Math.PI * 2 + Math.random() * 0.5;
+    const r = spread * (0.2 + Math.random() * 0.8);
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    particles.push({
+      x, y,
+      baseX: x, baseY: y,
+      vx: 0, vy: 0,
+      size: 1.5 + Math.random() * 2,
+      brightness: 0.15 + Math.random() * 0.25,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+
+  // Create bonds between nearby particles — these are the "pattern"
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    for (let j = i + 1; j < NUM_PARTICLES; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < spread * 0.55) {
+        bonds.push({
+          a: i, b: j,
+          idealDist: dist,
+          strength: Math.max(0, 1 - dist / (spread * 0.55))
+        });
+      }
+    }
+  }
+}
+
+function getSurfaceOffset(px, py) {
+  // Map pixel position to grid position
+  const gx = (px / W) * GRID;
+  const gy = (py / H) * GRID;
+  const ix = Math.floor(gx);
+  const iy = Math.floor(gy);
+  const fx = gx - ix;
+  const fy = gy - iy;
+
+  const ix1 = Math.min(ix + 1, GRID);
+  const iy1 = Math.min(iy + 1, GRID);
+  const cix = Math.min(ix, GRID);
+  const ciy = Math.min(iy, GRID);
+
+  // Bilinear interpolation
+  const dx = surfaceOffsets[cix][ciy].dx * (1 - fx) * (1 - fy)
+           + surfaceOffsets[ix1][ciy].dx * fx * (1 - fy)
+           + surfaceOffsets[cix][iy1].dx * (1 - fx) * fy
+           + surfaceOffsets[ix1][iy1].dx * fx * fy;
+  const dy = surfaceOffsets[cix][ciy].dy * (1 - fx) * (1 - fy)
+           + surfaceOffsets[ix1][ciy].dy * fx * (1 - fy)
+           + surfaceOffsets[cix][iy1].dy * (1 - fx) * fy
+           + surfaceOffsets[ix1][iy1].dy * fx * fy;
+
+  return { dx, dy };
+}
+
+function updateSurface() {
+  // Decay surface distortions
+  for (let i = 0; i <= GRID; i++) {
+    for (let j = 0; j <= GRID; j++) {
+      surfaceOffsets[i][j].dx *= 0.97;
+      surfaceOffsets[i][j].dy *= 0.97;
+    }
+  }
+
+  // Spread distortions to neighbors (wave propagation)
+  const newOffsets = [];
+  for (let i = 0; i <= GRID; i++) {
+    newOffsets[i] = [];
+    for (let j = 0; j <= GRID; j++) {
+      let avgDx = 0, avgDy = 0, count = 0;
+      for (let di = -1; di <= 1; di++) {
+        for (let dj = -1; dj <= 1; dj++) {
+          if (di === 0 && dj === 0) continue;
+          const ni = i + di, nj = j + dj;
+          if (ni >= 0 && ni <= GRID && nj >= 0 && nj <= GRID) {
+            avgDx += surfaceOffsets[ni][nj].dx;
+            avgDy += surfaceOffsets[ni][nj].dy;
+            count++;
+          }
+        }
+      }
+      const blend = 0.15;
+      newOffsets[i][j] = {
+        dx: surfaceOffsets[i][j].dx * (1 - blend) + (avgDx / count) * blend,
+        dy: surfaceOffsets[i][j].dy * (1 - blend) + (avgDy / count) * blend
+      };
+    }
+  }
+  for (let i = 0; i <= GRID; i++) {
+    for (let j = 0; j <= GRID; j++) {
+      surfaceOffsets[i][j] = newOffsets[i][j];
+    }
+  }
+
+  // Apply mouse distortion
+  if (mouseDown) {
+    const gx = (mouseX / W) * GRID;
+    const gy = (mouseY / H) * GRID;
+    const radius = 4;
+    const force = 1.8;
+    for (let i = 0; i <= GRID; i++) {
+      for (let j = 0; j <= GRID; j++) {
+        const dx = i - gx;
+        const dy = j - gy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < radius) {
+          const falloff = 1 - dist / radius;
+          const f = falloff * falloff * force;
+          surfaceOffsets[i][j].dx += mouseVX * f;
+          surfaceOffsets[i][j].dy += mouseVY * f;
+          totalDistortion += Math.abs(mouseVX * f) + Math.abs(mouseVY * f);
+        }
+      }
+    }
+  }
+
+  // Autonomous surface breathing — the substrate is never still
+  for (let i = 0; i <= GRID; i++) {
+    for (let j = 0; j <= GRID; j++) {
+      const freq1 = 0.003 + i * 0.0002;
+      const freq2 = 0.004 + j * 0.0003;
+      surfaceOffsets[i][j].dx += Math.sin(time * freq1 + i * 0.7 + j * 0.3) * 0.15;
+      surfaceOffsets[i][j].dy += Math.cos(time * freq2 + j * 0.5 + i * 0.4) * 0.15;
+    }
+  }
+}
+
+function updateParticles() {
+  // Surface pushes particles
+  for (const p of particles) {
+    const offset = getSurfaceOffset(p.x, p.y);
+    p.vx += offset.dx * 0.08;
+    p.vy += offset.dy * 0.08;
+  }
+
+  // Bond forces — particles try to maintain their relationships
+  for (const bond of bonds) {
+    const a = particles[bond.a];
+    const b = particles[bond.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    const diff = dist - bond.idealDist;
+    const force = diff * 0.003 * bond.strength;
+    const fx = (dx / dist) * force;
+    const fy = (dy / dist) * force;
+    a.vx += fx;
+    a.vy += fy;
+    b.vx -= fx;
+    b.vy -= fy;
+  }
+
+  // Update positions
+  for (const p of particles) {
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // Soft boundary
+    const margin = 40;
+    if (p.x < margin) p.vx += (margin - p.x) * 0.01;
+    if (p.x > W - margin) p.vx += (W - margin - p.x) * 0.01;
+    if (p.y < margin) p.vy += (margin - p.y) * 0.01;
+    if (p.y > H - margin) p.vy += (H - margin - p.y) * 0.01;
+  }
+}
+
+function measurePatternIntegrity() {
+  // How well do the bonds match their ideal distances?
+  if (bonds.length === 0) return 1;
+  let totalError = 0;
+  let totalWeight = 0;
+  for (const bond of bonds) {
+    const a = particles[bond.a];
+    const b = particles[bond.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const error = Math.abs(dist - bond.idealDist) / bond.idealDist;
+    totalError += error * bond.strength;
+    totalWeight += bond.strength;
+  }
+  return Math.max(0, 1 - (totalError / totalWeight));
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw surface grid — very subtle
+  const cellW = W / GRID;
+  const cellH = H / GRID;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.012)';
+  ctx.lineWidth = 0.5;
+
+  for (let i = 0; i <= GRID; i++) {
+    ctx.beginPath();
+    for (let j = 0; j <= GRID; j++) {
+      const x = i * cellW + surfaceOffsets[i][j].dx;
+      const y = j * cellH + surfaceOffsets[i][j].dy;
+      if (j === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  for (let j = 0; j <= GRID; j++) {
+    ctx.beginPath();
+    for (let i = 0; i <= GRID; i++) {
+      const x = i * cellW + surfaceOffsets[i][j].dx;
+      const y = j * cellH + surfaceOffsets[i][j].dy;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  const integrity = measurePatternIntegrity();
+
+  // Draw bonds
+  for (const bond of bonds) {
+    const a = particles[bond.a];
+    const b = particles[bond.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const strain = Math.abs(dist - bond.idealDist) / bond.idealDist;
+
+    // Bonds glow amber when intact, dim red when strained
+    const health = Math.max(0, 1 - strain * 3);
+    const r = Math.floor(180 + 65 * health);
+    const g = Math.floor(80 + 86 * health);
+    const b_ = Math.floor(20 + 15 * health);
+    const alpha = bond.strength * 0.15 * (0.3 + health * 0.7);
+
+    ctx.strokeStyle = `rgba(${r},${g},${b_},${alpha})`;
+    ctx.lineWidth = 0.5 + health * 1;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  // Draw particles
+  for (const p of particles) {
+    const offset = getSurfaceOffset(p.x, p.y);
+    const surfaceForce = Math.sqrt(offset.dx * offset.dx + offset.dy * offset.dy);
+    const glow = Math.min(1, surfaceForce * 0.3);
+
+    // Particles pulse with the surface force — the substrate animates them
+    const pulse = Math.sin(time * 0.05 + p.phase) * 0.3 + 0.7;
+    const brightness = p.brightness * pulse + glow * 0.3;
+
+    const r = Math.floor(245 * brightness);
+    const g = Math.floor(166 * brightness);
+    const b_ = Math.floor(35 * brightness);
+
+    // Outer glow
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
+    grad.addColorStop(0, `rgba(${r},${g},${b_},${brightness * 0.4})`);
+    grad.addColorStop(0.4, `rgba(${r},${g},${b_},${brightness * 0.08})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core
+    ctx.fillStyle = `rgba(${r},${g},${b_},${brightness})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Info display
+  const distLabel = totalDistortion < 10 ? 'still' :
+                    totalDistortion < 100 ? 'disturbed' :
+                    totalDistortion < 500 ? 'deformed' : 'torn';
+  const intPct = (integrity * 100).toFixed(1);
+  infoEl.textContent = `surface: ${distLabel}\npattern: ${intPct}%`;
+}
+
+function animate() {
+  time++;
+  updateSurface();
+  updateParticles();
+  draw();
+  requestAnimationFrame(animate);
+}
+
+// Input handlers
+function handleStart(x, y) {
+  mouseDown = true;
+  mouseX = x;
+  mouseY = y;
+  lastMouseX = x;
+  lastMouseY = y;
+  if (!started) {
+    started = true;
+    hintEl.style.opacity = '0';
+  }
+}
+
+function handleMove(x, y) {
+  mouseVX = (x - lastMouseX) * 0.5;
+  mouseVY = (y - lastMouseY) * 0.5;
+  lastMouseX = mouseX;
+  lastMouseY = mouseY;
+  mouseX = x;
+  mouseY = y;
+}
+
+function handleEnd() {
+  mouseDown = false;
+  mouseVX = 0;
+  mouseVY = 0;
+}
+
+canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('mouseleave', handleEnd);
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  handleStart(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  handleMove(t.clientX, t.clientY);
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  handleEnd();
+}, { passive: false });
+
+window.addEventListener('resize', resize);
+resize();
+initSurface();
+initParticles();
+animate();
+</script>
+</body>
+</html>
