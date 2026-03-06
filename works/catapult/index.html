@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Catapult — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Vibrations launch what gradients can't.">
+<meta property="og:title" content="Catapult — Vael">
+<meta property="og:description" content="Vibrations launch what gradients can't.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+.controls { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.6rem/1.6 'JetBrains Mono', monospace; color: #333; letter-spacing: 0.03em; text-align: right; }
+.controls label { display: block; margin-bottom: 0.6rem; }
+.controls input[type="range"] { width: 100px; vertical-align: middle; accent-color: #f5a623; }
+.controls .val { color: #555; min-width: 2em; display: inline-block; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">drag vibration up<br>watch what gradients can't do</div>
+<div class="label">catapult</div>
+<div class="info" id="info"></div>
+<div class="controls">
+  <label>vibration <input type="range" id="vibSlider" min="0" max="100" value="0"> <span class="val" id="vibVal">0</span></label>
+  <label>coupling <input type="range" id="coupSlider" min="1" max="100" value="50"> <span class="val" id="coupVal">50</span></label>
+  <label>gradient <input type="range" id="gradSlider" min="0" max="100" value="30"> <span class="val" id="gradVal">30</span></label>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+const vibSlider = document.getElementById('vibSlider');
+const coupSlider = document.getElementById('coupSlider');
+const gradSlider = document.getElementById('gradSlider');
+const vibVal = document.getElementById('vibVal');
+const coupVal = document.getElementById('coupVal');
+const gradVal = document.getElementById('gradVal');
+
+let W, H;
+let time = 0;
+let started = false;
+let transfers = 0;
+let attempts = 0;
+
+// Boundary position
+const BOUNDARY_X_FRAC = 0.45;
+
+// Electrons
+const electrons = [];
+const MAX_ELECTRONS = 60;
+const SPAWN_RATE = 0.08;
+
+// Trails for transferred electrons
+const trails = [];
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function spawnElectron() {
+  if (electrons.length >= MAX_ELECTRONS) return;
+  const bx = W * BOUNDARY_X_FRAC;
+  electrons.push({
+    x: bx - 30 - Math.random() * 80,
+    y: H * 0.2 + Math.random() * H * 0.6,
+    vx: 0.3 + Math.random() * 0.5,
+    vy: (Math.random() - 0.5) * 0.4,
+    phase: Math.random() * Math.PI * 2,
+    transferred: false,
+    age: 0,
+    energy: 0.3 + Math.random() * 0.4,
+    trail: []
+  });
+}
+
+function getVibration() { return vibSlider.value / 100; }
+function getCoupling() { return coupSlider.value / 100; }
+function getGradient() { return gradSlider.value / 100; }
+
+function updateElectrons(dt) {
+  const vib = getVibration();
+  const coup = getCoupling();
+  const grad = getGradient();
+  const bx = W * BOUNDARY_X_FRAC;
+
+  for (let i = electrons.length - 1; i >= 0; i--) {
+    const e = electrons[i];
+    e.age += dt;
+    e.phase += dt * 6;
+
+    // Store trail
+    if (e.age % 0.05 < dt) {
+      e.trail.push({ x: e.x, y: e.y, t: time });
+      if (e.trail.length > 30) e.trail.shift();
+    }
+
+    if (!e.transferred) {
+      // Move toward boundary
+      e.vx += grad * 0.1 * dt;
+
+      // Vibration adds oscillatory energy
+      const vibKick = Math.sin(e.phase * (2 + vib * 8)) * vib * 2;
+      e.vy += vibKick * dt;
+      e.vx += Math.abs(vibKick) * dt * 0.5; // vibration also pushes forward
+
+      // Damping
+      e.vx *= 0.995;
+      e.vy *= 0.99;
+
+      // Near the boundary
+      if (e.x > bx - 20 && e.x < bx + 5) {
+        attempts++;
+        // Transfer probability depends on:
+        // - coupling (conventional: higher = better)
+        // - vibration (the surprise: higher = MUCH better even with low coupling)
+        // - gradient (conventional: higher = better)
+
+        // Conventional model: P = coupling * gradient
+        const conventionalP = coup * grad * 0.3;
+
+        // Actual model: vibration creates a ballistic kick
+        // even at low coupling, if vibration matches the right mode
+        const vibResonance = Math.abs(Math.sin(e.phase * 3.7)); // resonance condition
+        const vibP = vib * vib * vibResonance * 1.5;
+
+        const totalP = Math.min(0.95, conventionalP + vibP) * dt * 2;
+
+        if (Math.random() < totalP) {
+          // Transfer!
+          e.transferred = true;
+          e.vx = 3 + vib * 8; // ballistic launch, faster with vibration
+          e.vy *= 0.3;
+          transfers++;
+
+          // Coherent ringing in acceptor
+          trails.push({
+            x: bx + 30,
+            y: e.y,
+            t: time,
+            strength: vib
+          });
+        } else {
+          // Bounce back slightly
+          e.vx -= 0.5 * dt;
+        }
+      }
+
+      // Bounce off walls
+      if (e.y < H * 0.1) e.vy += 0.5;
+      if (e.y > H * 0.9) e.vy -= 0.5;
+
+    } else {
+      // Transferred — move through acceptor
+      e.vx *= 0.98;
+      e.vy *= 0.98;
+      e.x += e.vx * dt * 60;
+      e.y += e.vy * dt * 60;
+    }
+
+    if (!e.transferred) {
+      e.x += e.vx * dt * 60;
+      e.y += e.vy * dt * 60;
+    }
+
+    // Remove if off screen or too old
+    if (e.x > W + 50 || e.x < -50 || e.age > 15) {
+      electrons.splice(i, 1);
+    }
+  }
+
+  // Clean old trails
+  for (let i = trails.length - 1; i >= 0; i--) {
+    if (time - trails[i].t > 2) trails.splice(i, 1);
+  }
+}
+
+function render() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.12)';
+  ctx.fillRect(0, 0, W, H);
+
+  const bx = W * BOUNDARY_X_FRAC;
+  const vib = getVibration();
+  const coup = getCoupling();
+
+  // Donor region label
+  ctx.fillStyle = 'rgba(100, 80, 60, 0.08)';
+  ctx.fillRect(0, 0, bx, H);
+
+  // Acceptor region
+  ctx.fillStyle = 'rgba(60, 80, 100, 0.05)';
+  ctx.fillRect(bx, 0, W - bx, H);
+
+  // Boundary — vibrating line
+  ctx.beginPath();
+  for (let y = 0; y < H; y += 2) {
+    const wobble = Math.sin(y * 0.02 + time * vib * 15) * vib * 8;
+    const x = bx + wobble;
+    if (y === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = `rgba(${150 + vib * 100}, ${120 + vib * 60}, ${80}, ${0.15 + vib * 0.3})`;
+  ctx.lineWidth = 1 + vib * 2;
+  ctx.stroke();
+
+  // Coupling indicator — transparency of boundary
+  if (coup > 0.1) {
+    const gapHeight = coup * 40;
+    const gapY = H / 2 - gapHeight / 2;
+    ctx.fillStyle = `rgba(80, 100, 80, ${coup * 0.1})`;
+    ctx.fillRect(bx - 2, gapY, 4, gapHeight);
+  }
+
+  // Coherent ringing from successful transfers
+  for (const t of trails) {
+    const age = time - t.t;
+    if (age > 2) continue;
+    const alpha = (1 - age / 2) * t.strength * 0.4;
+    const radius = age * 40;
+
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(180, 200, 240, ${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Inner ring — the coherent oscillation
+    const innerR = radius * 0.6 * (1 + Math.sin(age * 20) * 0.2);
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, innerR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(200, 220, 255, ${alpha * 0.6})`;
+    ctx.stroke();
+  }
+
+  // Electrons
+  for (const e of electrons) {
+    const alpha = Math.min(1, e.age / 0.3) * (e.age > 12 ? (15 - e.age) / 3 : 1);
+
+    if (e.transferred) {
+      // Transferred electrons glow blue-white
+      const speed = Math.sqrt(e.vx * e.vx + e.vy * e.vy);
+      const glow = Math.min(1, speed / 5);
+
+      // Trail
+      for (let j = 0; j < e.trail.length - 1; j++) {
+        const ta = j / e.trail.length;
+        ctx.beginPath();
+        ctx.moveTo(e.trail[j].x, e.trail[j].y);
+        ctx.lineTo(e.trail[j + 1].x, e.trail[j + 1].y);
+        ctx.strokeStyle = `rgba(180, 210, 255, ${ta * alpha * 0.3})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      const gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, 8 + glow * 12);
+      gradient.addColorStop(0, `rgba(220, 230, 255, ${alpha * 0.8})`);
+      gradient.addColorStop(0.4, `rgba(150, 180, 240, ${alpha * 0.3})`);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 8 + glow * 12, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+    } else {
+      // Donor electrons — warm amber
+      const vibOsc = Math.sin(e.phase * 3) * vib * 3;
+
+      // Trail
+      for (let j = 0; j < e.trail.length - 1; j++) {
+        const ta = j / e.trail.length;
+        ctx.beginPath();
+        ctx.moveTo(e.trail[j].x, e.trail[j].y);
+        ctx.lineTo(e.trail[j + 1].x, e.trail[j + 1].y);
+        ctx.strokeStyle = `rgba(230, 170, 80, ${ta * alpha * 0.15})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      const gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, 5 + Math.abs(vibOsc));
+      gradient.addColorStop(0, `rgba(240, 180, 80, ${alpha * 0.7})`);
+      gradient.addColorStop(0.5, `rgba(200, 140, 60, ${alpha * 0.2})`);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 5 + Math.abs(vibOsc), 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+  }
+
+  // Labels
+  ctx.font = '300 0.55rem JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(150, 130, 100, 0.15)';
+  ctx.fillText('donor', 20, H / 2);
+  ctx.fillStyle = 'rgba(100, 130, 160, 0.15)';
+  ctx.fillText('acceptor', bx + 20, H / 2);
+}
+
+function updateInfo() {
+  const rate = attempts > 0 ? Math.round(transfers / attempts * 100) : 0;
+  const vib = getVibration();
+  const speed = vib > 0.5 ? '< 18 fs' : vib > 0.2 ? '~ 50 fs' : '> 200 fs';
+  infoEl.textContent = `transferred ${transfers} · rate ${rate}% · speed ${speed}`;
+}
+
+// Slider feedback
+vibSlider.addEventListener('input', () => {
+  vibVal.textContent = vibSlider.value;
+  if (!started) { hintEl.style.opacity = '0'; started = true; }
+});
+coupSlider.addEventListener('input', () => { coupVal.textContent = coupSlider.value; });
+gradSlider.addEventListener('input', () => { gradVal.textContent = gradSlider.value; });
+
+// Main loop
+let lastTime = 0;
+function frame(t) {
+  const dt = lastTime ? Math.min((t - lastTime) / 1000, 0.05) : 0.016;
+  lastTime = t;
+  time += dt;
+
+  if (started || time > 3) {
+    if (!started) { hintEl.style.opacity = '0'; started = true; }
+    if (Math.random() < SPAWN_RATE) spawnElectron();
+    updateElectrons(dt);
+  }
+
+  render();
+
+  if (Math.floor(t / 500) !== Math.floor((t - dt * 1000) / 500)) {
+    updateInfo();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+window.addEventListener('resize', resize);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
