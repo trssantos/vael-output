@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tintinnabuli</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #c8c0b8;
+  font-family: 'Georgia', serif;
+  overflow: hidden;
+  height: 100vh;
+}
+canvas { display: block; }
+#controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  z-index: 10;
+  background: rgba(10,10,15,0.85);
+  padding: 16px 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(200,192,184,0.1);
+}
+#controls label {
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+#controls select, #controls input[type="range"] {
+  background: rgba(200,192,184,0.08);
+  border: 1px solid rgba(200,192,184,0.15);
+  color: #c8c0b8;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+#controls input[type="range"] {
+  width: 100px;
+  accent-color: #c8c0b8;
+}
+.position-label {
+  font-size: 12px;
+  opacity: 0.5;
+  min-width: 20px;
+  text-align: center;
+}
+#info {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 320px;
+  opacity: 0.6;
+}
+#info h2 {
+  font-size: 18px;
+  font-weight: normal;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+#consonance {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  font-size: 48px;
+  font-weight: 300;
+  opacity: 0.3;
+  letter-spacing: 0.05em;
+}
+#consonance span { font-size: 14px; opacity: 0.5; display: block; }
+#start-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10,10,15,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+}
+#start-overlay div {
+  text-align: center;
+  font-size: 16px;
+  line-height: 2;
+  opacity: 0.6;
+}
+#start-overlay div h1 {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+</style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <div>
+    <h1>TINTINNABULI</h1>
+    A melody. A triad. The distance between them.<br>
+    Drag the slider between position 1 (grit) and position 2 (purity).<br><br>
+    Click to begin.
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<div id="info">
+  <h2>TINTINNABULI</h2>
+  M-voice descends stepwise.<br>
+  T-voice finds the nearest triad note.<br>
+  Position 1: nearest. Dissonance possible.<br>
+  Position 2: second nearest. Always consonant.
+</div>
+
+<div id="consonance">
+  <span>consonance</span>
+  <span id="cons-val">—</span>
+</div>
+
+<div id="controls">
+  <label>position</label>
+  <span class="position-label">1</span>
+  <input type="range" id="position-slider" min="0" max="100" value="0">
+  <span class="position-label">2</span>
+
+  <label>scale</label>
+  <select id="scale-select">
+    <option value="minor">A minor</option>
+    <option value="major">C major</option>
+    <option value="dorian">D dorian</option>
+    <option value="chromatic">chromatic</option>
+  </select>
+
+  <label>tempo</label>
+  <input type="range" id="tempo-slider" min="20" max="100" value="45">
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Music theory
+const SCALES = {
+  minor: { root: 57, intervals: [0,2,3,5,7,8,10], triad: [0,3,7], name: 'A minor' },
+  major: { root: 60, intervals: [0,2,4,5,7,9,11], triad: [0,4,7], name: 'C major' },
+  dorian: { root: 62, intervals: [0,2,3,5,7,9,10], triad: [0,3,7], name: 'D dorian' },
+  chromatic: { root: 60, intervals: [0,1,2,3,4,5,6,7,8,9,10,11], triad: [0,3,7], name: 'chromatic' }
+};
+
+const INTERVAL_NAMES = {
+  0:'P1', 1:'m2', 2:'M2', 3:'m3', 4:'M3', 5:'P4', 6:'TT', 7:'P5', 8:'m6', 9:'M6', 10:'m7', 11:'M7'
+};
+const CONSONANT = new Set([0, 3, 4, 5, 7, 8, 9]); // P1, m3, M3, P4, P5, m6, M6
+
+let audioCtx = null;
+let currentScale = 'minor';
+let position = 0; // 0 = pos1, 1 = pos2, fractional = blend
+let tempo = 45;
+let playing = false;
+let stepIndex = 0;
+let lastStepTime = 0;
+
+// Visual state
+let notes = []; // { x, y, mMidi, tMidi, interval, consonant, birth, alpha }
+let consonanceHistory = [];
+
+function midiToFreq(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function getTriadNotes(scale) {
+  const s = SCALES[scale];
+  const notes = [];
+  for (let octave = -2; octave <= 3; octave++) {
+    for (const t of s.triad) {
+      notes.push(s.root + t + octave * 12);
+    }
+  }
+  return notes.sort((a, b) => a - b);
+}
+
+function getTVoice(mMidi, scale, pos) {
+  // pos: 0 = position 1 (nearest above), 1 = position 2 (second nearest above)
+  const triadNotes = getTriadNotes(scale);
+
+  // Find triad notes above mMidi
+  const above = triadNotes.filter(n => n > mMidi).sort((a, b) => a - b);
+
+  if (above.length < 2) return above[0] || mMidi;
+
+  // Pure position 1 or 2
+  if (pos <= 0) return above[0];
+  if (pos >= 1) return above[1];
+
+  // Blend: weighted random between pos1 and pos2
+  return Math.random() < pos ? above[1] : above[0];
+}
+
+function getScaleNotes(scale, descending) {
+  const s = SCALES[scale];
+  const notes = [];
+  // Two octaves descending from root+12
+  const topNote = s.root + 12;
+  for (let octave = 1; octave >= -1; octave--) {
+    const ints = descending ? [...s.intervals].reverse() : s.intervals;
+    for (const interval of ints) {
+      const midi = s.root + interval + octave * 12;
+      if (midi <= topNote + 1 && midi >= s.root - 14) {
+        notes.push(midi);
+      }
+    }
+  }
+  // Remove duplicates and sort descending
+  return [...new Set(notes)].sort((a, b) => b - a);
+}
+
+function playNote(freq, duration, volume, pan, type) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const panner = audioCtx.createStereoPanner();
+
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + 0.02);
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime + duration * 0.6);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+  panner.pan.setValueAtTime(pan, audioCtx.currentTime);
+
+  osc.connect(gain);
+  gain.connect(panner);
+  panner.connect(audioCtx.destination);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playBell(freq, duration) {
+  if (!audioCtx) return;
+  // Bell-like: fundamental + partials
+  const partials = [1, 2.76, 5.4, 8.93];
+  const volumes = [0.12, 0.04, 0.02, 0.01];
+
+  for (let i = 0; i < partials.length; i++) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * partials[i], audioCtx.currentTime);
+
+    const v = volumes[i];
+    gain.gain.setValueAtTime(v, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration * (1 - i * 0.2));
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+}
+
+function step() {
+  const scaleNotes = getScaleNotes(currentScale, true);
+  const mMidi = scaleNotes[stepIndex % scaleNotes.length];
+  const tMidi = getTVoice(mMidi, currentScale, position);
+
+  const interval = Math.abs(tMidi - mMidi) % 12;
+  const consonant = CONSONANT.has(interval);
+  const intervalName = INTERVAL_NAMES[interval];
+
+  // Play M-voice (melody) — warm sine, left
+  const mFreq = midiToFreq(mMidi);
+  const dur = (60 / tempo) * 0.9;
+  playNote(mFreq, dur, 0.15, -0.4, 'sine');
+
+  // Play T-voice (triad/bell) — bell-like, right
+  const tFreq = midiToFreq(tMidi);
+  playBell(tFreq, dur * 1.5);
+
+  // Visual note
+  const x = 0.15 * W + (stepIndex % scaleNotes.length) / scaleNotes.length * 0.7 * W;
+  const mY = H * 0.3 + (1 - (mMidi - 45) / 30) * H * 0.4;
+  const tY = H * 0.3 + (1 - (tMidi - 45) / 30) * H * 0.4;
+
+  notes.push({
+    x, mY, tY, mMidi, tMidi, interval, intervalName, consonant,
+    birth: performance.now(), alpha: 1
+  });
+
+  // Track consonance
+  consonanceHistory.push(consonant ? 1 : 0);
+  if (consonanceHistory.length > 14) consonanceHistory.shift();
+
+  const consRate = consonanceHistory.reduce((a, b) => a + b, 0) / consonanceHistory.length;
+  document.getElementById('cons-val').textContent = Math.round(consRate * 100) + '%';
+
+  stepIndex++;
+}
+
+function draw(now) {
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw notes
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const n = notes[i];
+    const age = (now - n.birth) / 1000;
+    n.alpha = Math.max(0, 1 - age / 8);
+
+    if (n.alpha <= 0) {
+      notes.splice(i, 1);
+      continue;
+    }
+
+    // M-voice dot (melody) — warm
+    ctx.beginPath();
+    ctx.arc(n.x, n.mY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200, 180, 150, ${n.alpha * 0.8})`;
+    ctx.fill();
+
+    // T-voice dot (bell) — color depends on consonance
+    const r = n.consonant ? 150 : 220;
+    const g = n.consonant ? 180 : 100;
+    const b = n.consonant ? 200 : 80;
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.tY, 5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${n.alpha * 0.7})`;
+    ctx.fill();
+
+    // Line connecting M and T
+    ctx.beginPath();
+    ctx.moveTo(n.x, n.mY);
+    ctx.lineTo(n.x, n.tY);
+    ctx.strokeStyle = n.consonant
+      ? `rgba(150, 180, 200, ${n.alpha * 0.15})`
+      : `rgba(220, 100, 80, ${n.alpha * 0.3})`;
+    ctx.lineWidth = n.consonant ? 1 : 2;
+    ctx.stroke();
+
+    // Interval label
+    if (age < 4) {
+      ctx.fillStyle = `rgba(200, 192, 184, ${n.alpha * 0.4})`;
+      ctx.font = '10px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.intervalName, n.x, Math.min(n.mY, n.tY) - 10);
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function gameLoop() {
+  if (!playing) return;
+
+  const now = performance.now();
+  const interval = (60 / tempo) * 1000;
+
+  if (now - lastStepTime >= interval) {
+    step();
+    lastStepTime = now;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Controls
+document.getElementById('position-slider').addEventListener('input', (e) => {
+  position = e.target.value / 100;
+  consonanceHistory = [];
+});
+
+document.getElementById('scale-select').addEventListener('change', (e) => {
+  currentScale = e.target.value;
+  stepIndex = 0;
+  consonanceHistory = [];
+});
+
+document.getElementById('tempo-slider').addEventListener('input', (e) => {
+  tempo = parseInt(e.target.value);
+});
+
+// Start
+document.getElementById('start-overlay').addEventListener('click', () => {
+  document.getElementById('start-overlay').style.display = 'none';
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  playing = true;
+  lastStepTime = performance.now();
+  gameLoop();
+});
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
