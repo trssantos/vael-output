@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locked — Vael</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #c8c0b8;
+  font-family: Georgia, serif;
+  overflow: hidden;
+  height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
+}
+canvas { display: block; position: absolute; top: 0; left: 0; }
+
+#info {
+  position: fixed;
+  top: 28px;
+  left: 30px;
+  z-index: 10;
+  font-size: 13px;
+  opacity: 0.5;
+  line-height: 1.6;
+}
+#info a { color: #c8c0b8; text-decoration: none; }
+#info a:hover { text-decoration: underline; }
+
+#prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.8;
+  opacity: 0.6;
+  transition: opacity 0.8s;
+  pointer-events: none;
+}
+
+#stats {
+  position: fixed;
+  top: 28px;
+  right: 30px;
+  z-index: 10;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  opacity: 0.4;
+  text-align: right;
+  line-height: 1.8;
+}
+
+#bottom {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 11px;
+  opacity: 0.3;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#history {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  opacity: 0.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 80vw;
+}
+</style>
+</head>
+<body>
+
+<div id="info"><a href="/works/">← works</a></div>
+
+<div id="prompt">
+  Press ← or → to begin.<br>
+  <span style="font-size: 12px; opacity: 0.5;">Try to be unpredictable.</span>
+</div>
+
+<div id="stats"></div>
+<div id="history"></div>
+<div id="bottom"></div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const promptEl = document.getElementById('prompt');
+const statsEl = document.getElementById('stats');
+const historyEl = document.getElementById('history');
+const bottomEl = document.getElementById('bottom');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Game state
+const choices = [];       // 0 = left, 1 = right
+const predictions = [];   // what the machine predicted
+const outcomes = [];       // true = machine was right
+let total = 0;
+let machineCorrect = 0;
+let started = false;
+let lastChoice = -1;
+let lastPrediction = -1;
+let lastCorrect = false;
+let flashTime = 0;
+let lockPulse = 0;
+
+// N-gram predictor
+// Tracks patterns of length 1, 2, 3, 4
+const ngrams = {};
+
+function getKey(history, n) {
+  if (history.length < n) return null;
+  return history.slice(-n).join('');
+}
+
+function predict() {
+  if (choices.length === 0) return Math.random() < 0.5 ? 0 : 1;
+
+  // Weight predictions from different n-gram lengths
+  let score0 = 0, score1 = 0;
+  const weights = [0, 1, 3, 8, 15]; // higher n-grams weighted more
+
+  for (let n = 1; n <= 4; n++) {
+    const key = getKey(choices, n);
+    if (key === null) continue;
+    const after0 = ngrams[key + '0'] || 0;
+    const after1 = ngrams[key + '1'] || 0;
+    if (after0 + after1 === 0) continue;
+    score0 += weights[n] * after0 / (after0 + after1);
+    score1 += weights[n] * after1 / (after0 + after1);
+  }
+
+  // Frequency baseline
+  const freq0 = choices.filter(c => c === 0).length;
+  const freq1 = choices.filter(c => c === 1).length;
+  if (freq0 + freq1 > 0) {
+    score0 += 0.5 * freq0 / (freq0 + freq1);
+    score1 += 0.5 * freq1 / (freq0 + freq1);
+  }
+
+  if (score0 === score1) return Math.random() < 0.5 ? 0 : 1;
+  return score0 > score1 ? 0 : 1;
+}
+
+function updateNgrams(choice) {
+  for (let n = 1; n <= 4; n++) {
+    if (choices.length < n + 1) continue;
+    const key = choices.slice(-(n + 1), -1).join('') + String(choice);
+    // Actually we want: given the previous n choices, what came next
+    const contextKey = choices.slice(-(n + 1), -1).join('');
+    ngrams[contextKey + String(choice)] = (ngrams[contextKey + String(choice)] || 0) + 1;
+  }
+}
+
+function makeChoice(choice) {
+  if (!started) {
+    started = true;
+    promptEl.style.opacity = '0';
+  }
+
+  const pred = predict();
+
+  // Update n-grams with the actual choice
+  updateNgrams(choice);
+
+  choices.push(choice);
+  predictions.push(pred);
+
+  const correct = pred === choice;
+  outcomes.push(correct);
+  total++;
+  if (correct) machineCorrect++;
+
+  lastChoice = choice;
+  lastPrediction = pred;
+  lastCorrect = correct;
+  flashTime = performance.now();
+
+  // Update stats
+  const accuracy = total > 0 ? (machineCorrect / total * 100).toFixed(1) : '0.0';
+  const streak = getStreak();
+
+  statsEl.innerHTML = `round ${total}<br>` +
+    `machine: ${accuracy}%<br>` +
+    `${machineCorrect} / ${total}`;
+
+  // Update history — show last 40 choices
+  const recent = choices.slice(-40);
+  const recentOutcomes = outcomes.slice(-40);
+  let hist = '';
+  for (let i = 0; i < recent.length; i++) {
+    const ch = recent[i] === 0 ? '←' : '→';
+    const hit = recentOutcomes[i];
+    if (hit) {
+      hist += `<span style="color: #e8a849;">${ch}</span>`;
+    } else {
+      hist += `<span style="opacity: 0.4;">${ch}</span>`;
+    }
+  }
+  historyEl.innerHTML = hist;
+
+  // Update bottom text based on accuracy
+  if (total < 5) {
+    bottomEl.textContent = '← left    right →';
+  } else if (total < 15) {
+    bottomEl.textContent = 'the machine is learning your patterns';
+  } else {
+    const acc = machineCorrect / total;
+    if (acc > 0.7) {
+      bottomEl.textContent = 'you are predictable';
+    } else if (acc > 0.6) {
+      bottomEl.textContent = 'it knows you better than you think';
+    } else if (acc > 0.55) {
+      bottomEl.textContent = 'you\'re trying harder now';
+    } else {
+      bottomEl.textContent = 'keep going';
+    }
+  }
+}
+
+function getStreak() {
+  let s = 0;
+  for (let i = outcomes.length - 1; i >= 0; i--) {
+    if (outcomes[i]) s++;
+    else break;
+  }
+  return s;
+}
+
+// Input handling
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); makeChoice(0); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); makeChoice(1); }
+});
+
+// Touch/click — left half = left, right half = right
+canvas.addEventListener('click', (e) => {
+  const x = e.clientX;
+  makeChoice(x < W / 2 ? 0 : 1);
+});
+
+// Particles for visual feedback
+const particles = [];
+
+function spawnParticles(x, y, correct) {
+  const count = correct ? 30 : 8;
+  const color = correct ? '#e8a849' : '#3a3a4a';
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = correct ? 1 + Math.random() * 3 : 0.5 + Math.random() * 1.5;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.015,
+      size: correct ? 2 + Math.random() * 3 : 1 + Math.random() * 2,
+      color
+    });
+  }
+}
+
+// The cage — lines that tighten as the machine gets better
+function drawCage(t) {
+  if (total < 3) return;
+
+  const accuracy = machineCorrect / total;
+  const strength = Math.max(0, (accuracy - 0.4) * 2.5); // 0 at 40%, 1 at 80%
+  const numLines = Math.floor(4 + strength * 20);
+  const maxRadius = Math.min(W, H) * 0.45;
+  const radius = maxRadius * (1 - strength * 0.6); // shrinks as machine wins
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+
+  for (let i = 0; i < numLines; i++) {
+    const angle = (i / numLines) * Math.PI * 2 + t * 0.0001 * (1 + strength);
+    const wobble = Math.sin(t * 0.002 + i * 0.7) * (1 - strength) * 20;
+    const r = radius + wobble;
+
+    const x1 = Math.cos(angle) * r;
+    const y1 = Math.sin(angle) * r;
+    const x2 = Math.cos(angle + Math.PI) * r;
+    const y2 = Math.sin(angle + Math.PI) * r;
+
+    const alpha = 0.03 + strength * 0.12;
+    ctx.strokeStyle = `rgba(232, 168, 73, ${alpha})`;
+    ctx.lineWidth = 0.5 + strength * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  // Inner pulse when machine just predicted correctly
+  if (lastCorrect && performance.now() - flashTime < 500) {
+    const elapsed = (performance.now() - flashTime) / 500;
+    const pulseR = radius * 0.3 * (1 - elapsed);
+    const pulseAlpha = 0.15 * (1 - elapsed);
+    ctx.strokeStyle = `rgba(232, 168, 73, ${pulseAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// Draw choice indicators
+function drawChoice(t) {
+  if (!started) return;
+
+  const elapsed = (performance.now() - flashTime) / 1000;
+  if (elapsed > 2) return;
+
+  const fade = Math.max(0, 1 - elapsed / 2);
+
+  // Your choice — a line on left or right side
+  const choiceX = lastChoice === 0 ? W * 0.25 : W * 0.75;
+  const predX = lastPrediction === 0 ? W * 0.25 : W * 0.75;
+
+  // Your choice: white line
+  ctx.strokeStyle = `rgba(200, 192, 184, ${0.4 * fade})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(choiceX, H * 0.3);
+  ctx.lineTo(choiceX, H * 0.7);
+  ctx.stroke();
+
+  // Machine prediction: amber line
+  ctx.strokeStyle = `rgba(232, 168, 73, ${0.3 * fade})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(predX, H * 0.35);
+  ctx.lineTo(predX, H * 0.65);
+  ctx.stroke();
+
+  // If they overlap (correct prediction), bright flash
+  if (lastCorrect) {
+    const flashFade = Math.max(0, 1 - elapsed / 0.5);
+    ctx.fillStyle = `rgba(232, 168, 73, ${0.08 * flashFade})`;
+    ctx.fillRect(choiceX - W * 0.15, 0, W * 0.3, H);
+  }
+}
+
+// The dividing line
+function drawDivider(t) {
+  if (!started) return;
+
+  const accuracy = total > 0 ? machineCorrect / total : 0.5;
+  const alpha = 0.05 + accuracy * 0.1;
+
+  ctx.strokeStyle = `rgba(200, 192, 184, ${alpha})`;
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4, 8]);
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0);
+  ctx.lineTo(W / 2, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Main loop
+function draw(t) {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+
+  drawDivider(t);
+  drawCage(t);
+  drawChoice(t);
+
+  // Update and draw particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.98;
+    p.vy *= 0.98;
+    p.life -= p.decay;
+
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.life * 0.6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Spawn particles on choice
+  if (performance.now() - flashTime < 50 && started && total > 0) {
+    const choiceX = lastChoice === 0 ? W * 0.25 : W * 0.75;
+    spawnParticles(choiceX, H / 2, lastCorrect);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
