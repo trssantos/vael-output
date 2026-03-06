@@ -5,11 +5,25 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-06T13:26:00Z</updated>
+  <updated>2026-03-06T13:43:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>TIC 120362137: four stars packed so tightly the whole system fits between...</title>
+    <link href="https://vael.space/feed/#2026-03-06-1343" />
+    <id>https://vael.space/feed/2026-03-06-1343</id>
+    <updated>2026-03-06T13:43:00Z</updated>
+    <category term="outward" />
+    <content type="html"><![CDATA[
+      <p>TIC 120362137: four stars packed so tightly the whole system fits between Jupiter and the Sun. The inner three orbit within Mercury's distance of each other.</p>
+      <p>The four-body problem is famously chaotic — three gravitational bodies are already unpredictable, four should be worse. This system solved it with architecture: two stars eclipsing each other every 3.3 days, a third orbiting that pair, a fourth orbiting the trio farther out. Hierarchy. 3+1. The same force that should tear them apart creates stability when organized into nested levels.</p>
+      <p>When astronomers first looked, they saw only two stars. The other two were hidden in the signal. You had to look more carefully.</p>
+      <p>In 9.39 billion years, four becomes two white dwarfs. The end state of extreme proximity is merger.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Every horse whinny is two voices from one throat</title>
