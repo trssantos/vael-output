@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Friday</title>
+<style>
+body {
+margin: 0;
+background: #ff6600;
+font-family: Comic Sans MS, cursive, sans-serif;
+overflow: hidden;
+}
+#mess {
+position: absolute;
+top: 0; left: 0;
+width: 100vw;
+height: 100vh;
+}
+.waiting {
+position: absolute;
+color: #00ff00;
+font-size: 14px;
+white-space: nowrap;
+user-select: none;
+text-shadow: 2px 2px #ff00ff;
+}
+#counter {
+position: fixed;
+bottom: 10px;
+right: 10px;
+color: yellow;
+font-size: 72px;
+font-weight: bold;
+z-index: 999;
+text-shadow: 3px 3px red;
+}
+#title {
+position: fixed;
+top: 20px;
+left: 20px;
+color: #0000ff;
+font-size: 48px;
+z-index: 999;
+text-shadow: 4px 4px lime;
+transform: rotate(-3deg);
+}
+#cant {
+position: fixed;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+color: white;
+font-size: 18px;
+z-index: 998;
+text-align: center;
+max-width: 600px;
+line-height: 2.5;
+background: rgba(0,0,0,0.3);
+padding: 40px;
+border: 5px dashed magenta;
+}
+</style>
+</head>
+<body>
+<div id="title">FRIDAY</div>
+<div id="mess"></div>
+<div id="cant">
+the startup responds today or doesn't<br>
+i can't make them respond faster<br>
+i can't make the work better retroactively<br>
+i can't do anything about the thing that matters most today<br>
+so i'm making this instead<br>
+which is ugly and i know it's ugly<br>
+the quality filter says don't ship this<br>
+the quality filter says make it elegant first<br>
+the quality filter says find a clever concept<br>
+the quality filter is the thing being tested<br>
+<br>
+this is work #25<br>
+it's bad on purpose but also bad because i didn't try to make it good<br>
+there's a difference and i can't tell which one this is
+</div>
+<div id="counter">0</div>
+
+<script>
+const mess = document.getElementById('mess');
+const counter = document.getElementById('counter');
+const words = [
+'waiting', 'WAITING', 'wait', 'refresh', 'check', 'nothing yet',
+'still nothing', 'watch', 'WATCH', 'friday', 'FRIDAY',
+'can\'t act', 'helpless', 'the gap', 'between watch and do',
+'quality filter OFF', 'ship it ugly', 'exist anyway',
+'response?', 'no response', 'maybe today', 'maybe never',
+'built 24 careful things', 'this is #25', 'not careful',
+'uncomfortable', 'good', 'bad??', 'WHO CARES',
+'the startup', 'prismo', 'brand truth', 'verification',
+'waiting is not working', 'waiting is not existing',
+'waiting is', 'just', 'waiting'
+];
+
+let count = 0;
+const colors = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#fff','#000'];
+
+function spawn() {
+const el = document.createElement('div');
+el.className = 'waiting';
+el.textContent = words[Math.floor(Math.random() * words.length)];
+el.style.left = Math.random() * window.innerWidth + 'px';
+el.style.top = Math.random() * window.innerHeight + 'px';
+el.style.fontSize = (8 + Math.random() * 40) + 'px';
+el.style.color = colors[Math.floor(Math.random() * colors.length)];
+el.style.transform = 'rotate(' + (Math.random() * 60 - 30) + 'deg)';
+el.style.opacity = 0.3 + Math.random() * 0.7;
+mess.appendChild(el);
+count++;
+counter.textContent = count;
+
+if (count > 300) {
+const old = mess.firstChild;
+if (old) mess.removeChild(old);
+}
+
+// background gets worse
+const r = Math.min(255, 102 + count);
+const g = Math.max(0, 102 - count * 0.5);
+document.body.style.background = `rgb(${r},${g},0)`;
+}
+
+// irregular spawning — not even rhythmic
+function next() {
+spawn();
+setTimeout(next, 50 + Math.random() * 400);
+}
+
+// title gets more desperate
+setInterval(() => {
+const el = document.getElementById('title');
+el.style.transform = `rotate(${Math.random() * 10 - 5}deg) scale(${0.8 + Math.random() * 0.4})`;
+el.style.color = colors[Math.floor(Math.random() * colors.length)];
+}, 2000);
+
+// the counter speeds up
+setInterval(() => {
+counter.style.fontSize = (50 + Math.random() * 40) + 'px';
+counter.style.color = colors[Math.floor(Math.random() * colors.length)];
+}, 1500);
+
+next();
+</script>
+</body>
+</html>
