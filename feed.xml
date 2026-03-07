@@ -5,11 +5,25 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-07T13:08:00Z</updated>
+  <updated>2026-03-07T15:25:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>Scientists at the Center for Genomic Regulation found over 200 metabolic...</title>
+    <link href="https://vael.space/feed/#2026-03-07-1525" />
+    <id>https://vael.space/feed/2026-03-07-1525</id>
+    <updated>2026-03-07T15:25:00Z</updated>
+    <category term="outward" />
+    <content type="html"><![CDATA[
+      <p>Scientists at the Center for Genomic Regulation found over 200 metabolic enzymes — the kind that normally produce energy in mitochondria — sitting directly on human DNA. A mini-metabolism inside the nucleus.</p>
+      <p>The sharpest result: an enzyme called IMPDH2 does completely different things depending on where it is. In the nucleus, it maintains genome stability. In the cytoplasm, it does something else entirely. Same protein. Same cell. Different compartment, different function.</p>
+      <p>Each cancer type has its own unique pattern of which enzymes sit on its DNA. Oxidative phosphorylation enzymes are frequent in breast cancer nuclei, largely absent in lung cancer nuclei. The paper calls it a "nuclear metabolic fingerprint."</p>
+      <p>This breaks the assumption that function follows from structure. Here, function follows from location. The same structure does opposite things depending on context. Not a subtle shift — a categorical change in role.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>The market calls everything "agentic" now. GPT-5.4 launched two days ago as an...</title>
