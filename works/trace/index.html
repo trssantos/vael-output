@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Trace — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Identity is the path, not the point.">
+<meta property="og:title" content="Trace — Vael">
+<meta property="og:description" content="Identity is the path, not the point.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">move through the field</div>
+<div class="label">trace</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+
+let W, H;
+let time = 0;
+let started = false;
+let totalTouched = 0;
+
+// Mouse / touch
+let mouseX = -1000, mouseY = -1000;
+let prevMouseX = -1000, prevMouseY = -1000;
+let mouseActive = false;
+let mouseSpeed = 0;
+
+// Particles
+const PARTICLE_COUNT = 2400;
+const TOUCH_RADIUS = 60;
+const TRACE_FADE = 0.0003; // how slowly traces fade
+
+let particles = [];
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * (W || window.innerWidth);
+        this.y = Math.random() * (H || window.innerHeight);
+        this.baseVX = (Math.random() - 0.5) * 0.15;
+        this.baseVY = (Math.random() - 0.5) * 0.15;
+        this.vx = this.baseVX;
+        this.vy = this.baseVY;
+        this.size = 1 + Math.random() * 0.5;
+
+        // Trace state
+        this.touched = 0;       // 0 = untouched, 1 = fully traced
+        this.biasX = 0;         // accumulated directional bias from traces
+        this.biasY = 0;
+        this.touchCount = 0;    // how many times touched
+        this.lastTouchDir = 0;  // angle of last touch
+        this.phase = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        // Untouched: pure drift with slight brownian motion
+        // Touched: drift + bias from traces
+        const drift = 0.02;
+        this.vx = this.baseVX + (Math.random() - 0.5) * drift;
+        this.vy = this.baseVY + (Math.random() - 0.5) * drift;
+
+        // Apply accumulated bias — touched particles lean
+        if (this.touched > 0.01) {
+            this.vx += this.biasX * this.touched * 0.3;
+            this.vy += this.biasY * this.touched * 0.3;
+
+            // Touched particles also oscillate slightly around the bias direction
+            const osc = Math.sin(time * 0.5 + this.phase) * this.touched * 0.08;
+            this.vx += Math.cos(this.lastTouchDir + Math.PI / 2) * osc;
+            this.vy += Math.sin(this.lastTouchDir + Math.PI / 2) * osc;
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Wrap
+        if (this.x < -10) this.x = W + 10;
+        if (this.x > W + 10) this.x = -10;
+        if (this.y < -10) this.y = H + 10;
+        if (this.y > H + 10) this.y = -10;
+
+        // Trace fades, but never fully — a residue remains
+        if (this.touched > 0) {
+            const floor = Math.min(this.touchCount * 0.05, 0.4);
+            this.touched = Math.max(floor, this.touched - TRACE_FADE);
+        }
+
+        // Bias also slowly decays but much slower
+        this.biasX *= 0.9997;
+        this.biasY *= 0.9997;
+    }
+
+    touch(dirX, dirY, strength) {
+        const wasTouched = this.touched > 0.1;
+        this.touched = Math.min(1, this.touched + strength * 0.4);
+        this.touchCount++;
+
+        // Accumulate directional bias
+        const norm = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
+        this.biasX += (dirX / norm) * strength * 0.15;
+        this.biasY += (dirY / norm) * strength * 0.15;
+
+        // Cap bias magnitude
+        const biasMag = Math.sqrt(this.biasX * this.biasX + this.biasY * this.biasY);
+        if (biasMag > 0.5) {
+            this.biasX = (this.biasX / biasMag) * 0.5;
+            this.biasY = (this.biasY / biasMag) * 0.5;
+        }
+
+        this.lastTouchDir = Math.atan2(dirY, dirX);
+
+        if (!wasTouched) totalTouched++;
+    }
+
+    draw() {
+        const t = this.touched;
+
+        if (t < 0.01) {
+            // Untouched: dim, identical
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+            ctx.fillRect(this.x - 0.5, this.y - 0.5, 1, 1);
+        } else {
+            // Touched: brighter, with color shift based on bias direction
+            const angle = Math.atan2(this.biasY, this.biasX);
+            const hue = ((angle + Math.PI) / (Math.PI * 2)) * 60 + 20; // warm range: 20-80
+            const sat = 30 + t * 40;
+            const light = 15 + t * 35;
+            const alpha = 0.15 + t * 0.6;
+
+            ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+
+            const s = this.size * (1 + t * 0.8);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, s, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw faint connection lines between nearby touched particles
+            // (only for strongly touched ones to avoid performance hit)
+            if (t > 0.3 && this.touchCount > 2) {
+                ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, ${t * 0.04})`;
+                ctx.lineWidth = 0.5;
+            }
+        }
+    }
+}
+
+// Trail points (the visible trace that fades)
+let trailPoints = [];
+const MAX_TRAIL = 800;
+
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+
+function init() {
+    resize();
+    particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(new Particle());
+    }
+}
+
+function handleInteraction() {
+    if (!mouseActive || mouseX < 0) return;
+
+    const dx = mouseX - prevMouseX;
+    const dy = mouseY - prevMouseY;
+    mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+
+    if (mouseSpeed < 0.5) return;
+
+    if (!started) {
+        started = true;
+        hintEl.style.opacity = '0';
+    }
+
+    // Add trail point
+    trailPoints.push({
+        x: mouseX,
+        y: mouseY,
+        age: 0,
+        speed: mouseSpeed,
+        dirX: dx,
+        dirY: dy
+    });
+    if (trailPoints.length > MAX_TRAIL) trailPoints.shift();
+
+    // Touch nearby particles
+    const r = TOUCH_RADIUS + mouseSpeed * 0.5;
+    const r2 = r * r;
+
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const pdx = p.x - mouseX;
+        const pdy = p.y - mouseY;
+        const dist2 = pdx * pdx + pdy * pdy;
+
+        if (dist2 < r2) {
+            const dist = Math.sqrt(dist2);
+            const strength = 1 - dist / r;
+            p.touch(dx, dy, strength);
+        }
+    }
+}
+
+function drawTrail() {
+    if (trailPoints.length < 2) return;
+
+    for (let i = 0; i < trailPoints.length; i++) {
+        const p = trailPoints[i];
+        p.age += 0.003;
+    }
+
+    // Remove fully faded trail points
+    trailPoints = trailPoints.filter(p => p.age < 1);
+
+    // Draw trail as fading line segments
+    for (let i = 1; i < trailPoints.length; i++) {
+        const p0 = trailPoints[i - 1];
+        const p1 = trailPoints[i];
+        const alpha = (1 - p1.age) * 0.12;
+
+        if (alpha < 0.005) continue;
+
+        ctx.strokeStyle = `rgba(180, 140, 80, ${alpha})`;
+        ctx.lineWidth = 1 + (1 - p1.age) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+    }
+}
+
+function drawConnections() {
+    // Draw faint lines between nearby touched particles
+    const touchedParticles = particles.filter(p => p.touched > 0.25 && p.touchCount > 1);
+
+    if (touchedParticles.length < 2 || touchedParticles.length > 200) return;
+
+    const connDist = 80;
+    const connDist2 = connDist * connDist;
+
+    for (let i = 0; i < touchedParticles.length; i++) {
+        const a = touchedParticles[i];
+        for (let j = i + 1; j < touchedParticles.length; j++) {
+            const b = touchedParticles[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d2 = dx * dx + dy * dy;
+
+            if (d2 < connDist2) {
+                const d = Math.sqrt(d2);
+                const alpha = (1 - d / connDist) * Math.min(a.touched, b.touched) * 0.06;
+
+                if (alpha < 0.003) continue;
+
+                ctx.strokeStyle = `rgba(180, 140, 80, ${alpha})`;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+function updateInfo() {
+    if (!started) return;
+
+    const pct = ((totalTouched / PARTICLE_COUNT) * 100).toFixed(1);
+    const active = particles.filter(p => p.touched > 0.1).length;
+    const residual = particles.filter(p => p.touched > 0.01 && p.touched < 0.1).length;
+
+    infoEl.textContent = `touched ${pct}%\nactive ${active}\nresidue ${residual}`;
+}
+
+function animate() {
+    time += 0.016;
+
+    // Very slow clear — leaves afterimage
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+    ctx.fillRect(0, 0, W, H);
+
+    handleInteraction();
+    drawTrail();
+
+    for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+    }
+
+    drawConnections();
+
+    if (time % 1 < 0.02) updateInfo();
+
+    prevMouseX = mouseX;
+    prevMouseY = mouseY;
+
+    requestAnimationFrame(animate);
+}
+
+// Input handlers
+function onMove(x, y) {
+    mouseX = x;
+    mouseY = y;
+    mouseActive = true;
+}
+
+canvas.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener('mouseleave', () => { mouseActive = false; });
+canvas.addEventListener('touchend', () => { mouseActive = false; });
+
+window.addEventListener('resize', resize);
+
+init();
+animate();
+</script>
+</body>
+</html>
