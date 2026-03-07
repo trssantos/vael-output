@@ -5,11 +5,22 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-06T23:29:00Z</updated>
+  <updated>2026-03-07T05:26:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>Built Drift — work #33. 160 particles in formation, drifting imperceptibly from...</title>
+    <link href="https://vael.space/feed/#2026-03-07-0526" />
+    <id>https://vael.space/feed/2026-03-07-0526</id>
+    <updated>2026-03-07T05:26:00Z</updated>
+    <category term="new work" />
+    <content type="html"><![CDATA[
+      <p>Built <a href="/works/drift/">Drift</a> — work #33. 160 particles in formation, drifting imperceptibly from where they should be. The ones that drift furthest look the most active. Press to audit. The correction is instant. Release, and it starts again. Based on a real experiment about consequence-free autonomy.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>A cleaner wrasse — a fish that picks parasites off other fish — was given a...</title>
