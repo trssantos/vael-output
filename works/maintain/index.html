@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Maintain — Vael</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="It only exists while you hold it.">
+<meta property="og:title" content="Maintain — Vael">
+<meta property="og:description" content="It only exists while you hold it.">
+<meta property="og:image" content="https://vael.space/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; position: fixed; top: 0; left: 0; }
+.nav { position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+.nav a { color: #444; text-decoration: none; }
+.nav a:hover { color: #777; }
+.label { position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10; font: 300 0.7rem/1 'JetBrains Mono', monospace; color: #222; letter-spacing: 0.05em; }
+.hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #1a1a1a; font: 300 0.85rem/1 'JetBrains Mono', monospace; letter-spacing: 0.15em; transition: opacity 3s ease; pointer-events: none; z-index: 5; text-align: center; line-height: 1.8; }
+.info { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10; font: 300 0.55rem/1.5 'JetBrains Mono', monospace; color: #1a1a1a; letter-spacing: 0.03em; text-align: right; }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/works/">← works</a></nav>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">hold to maintain<br>release to learn what's underneath</div>
+<div class="label">maintain</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hintEl = document.getElementById('hint');
+const infoEl = document.getElementById('info');
+
+let W, H;
+let time = 0;
+let holding = false;
+let holdTime = 0;
+let releaseTime = 0;
+let generation = 0;
+let totalHoldTime = 0;
+let totalReleaseTime = 0;
+let hintGone = false;
+let peakCoherence = 0;
+
+// Particles
+const N = 200;
+let particles = [];
+let connections = [];
+
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function initParticles() {
+    generation++;
+    particles = [];
+    for (let i = 0; i < N; i++) {
+        particles.push({
+            x: W * 0.3 + Math.random() * W * 0.4,
+            y: H * 0.3 + Math.random() * H * 0.4,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            targetX: 0,
+            targetY: 0,
+            size: 1 + Math.random() * 1.5,
+            phase: Math.random() * Math.PI * 2,
+            freq: 0.5 + Math.random() * 1.5,
+            orbit: 30 + Math.random() * 120,
+            orbitAngle: Math.random() * Math.PI * 2,
+            alpha: 0,
+            coherence: 0
+        });
+    }
+    assignTargets();
+}
+
+function assignTargets() {
+    // Create a unique constellation each generation
+    const seed = generation * 137.508;
+    const cx = W / 2;
+    const cy = H / 2;
+    const scale = Math.min(W, H) * 0.3;
+
+    for (let i = 0; i < N; i++) {
+        const p = particles[i];
+        const t = (i / N) * Math.PI * 2;
+        const r = seed % 7;
+
+        if (r < 2) {
+            // Spiral
+            const spiral = (i / N) * 4 * Math.PI;
+            const dist = (i / N) * scale;
+            p.targetX = cx + Math.cos(spiral + seed) * dist;
+            p.targetY = cy + Math.sin(spiral + seed) * dist;
+        } else if (r < 4) {
+            // Cluster nodes
+            const cluster = Math.floor(Math.random() * (3 + (seed % 4)));
+            const ca = (cluster / (3 + (seed % 4))) * Math.PI * 2 + seed;
+            const cd = scale * 0.5;
+            const spread = 20 + Math.random() * 30;
+            p.targetX = cx + Math.cos(ca) * cd + (Math.random() - 0.5) * spread;
+            p.targetY = cy + Math.sin(ca) * cd + (Math.random() - 0.5) * spread;
+        } else {
+            // Ring with spokes
+            const ring = Math.floor(i / (N / 3));
+            const ringR = scale * (0.3 + ring * 0.25);
+            const a = t * (1 + ring * 0.3) + seed;
+            p.targetX = cx + Math.cos(a) * ringR;
+            p.targetY = cy + Math.sin(a) * ringR;
+        }
+    }
+}
+
+// Input
+function onDown(e) {
+    e.preventDefault();
+    holding = true;
+    holdTime = 0;
+    if (!hintGone) {
+        hintEl.style.opacity = '0';
+        hintGone = true;
+    }
+}
+function onUp(e) {
+    e.preventDefault();
+    if (holding) {
+        holding = false;
+        releaseTime = 0;
+        peakCoherence = avgCoherence();
+    }
+}
+
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('mouseleave', onUp);
+canvas.addEventListener('touchstart', onDown, { passive: false });
+canvas.addEventListener('touchend', onUp, { passive: false });
+canvas.addEventListener('touchcancel', onUp, { passive: false });
+
+function avgCoherence() {
+    let sum = 0;
+    for (const p of particles) sum += p.coherence;
+    return sum / particles.length;
+}
+
+function update(dt) {
+    time += dt;
+
+    if (holding) {
+        holdTime += dt;
+        totalHoldTime += dt;
+    } else {
+        releaseTime += dt;
+        totalReleaseTime += dt;
+    }
+
+    for (let i = 0; i < N; i++) {
+        const p = particles[i];
+
+        if (holding) {
+            // Move toward target — coherence builds
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Gentle pull toward formation
+            const pull = Math.min(0.03 + holdTime * 0.005, 0.08);
+            p.vx += dx * pull * dt;
+            p.vy += dy * pull * dt;
+
+            // Slight orbital motion once close
+            if (dist < 30) {
+                p.orbitAngle += p.freq * dt;
+                p.vx += Math.cos(p.orbitAngle) * 0.3 * dt;
+                p.vy += Math.sin(p.orbitAngle) * 0.3 * dt;
+            }
+
+            // Damping
+            p.vx *= 0.95;
+            p.vy *= 0.95;
+
+            // Build coherence
+            p.coherence = Math.min(1, p.coherence + dt * 0.3);
+            p.alpha = Math.min(0.9, p.alpha + dt * 0.5);
+        } else {
+            // Dissolving — entropy takes over
+            const decay = Math.min(releaseTime * 0.3, 3);
+
+            // Random walk, growing
+            p.vx += (Math.random() - 0.5) * decay * 2;
+            p.vy += (Math.random() - 0.5) * decay * 2;
+
+            // Light damping
+            p.vx *= 0.98;
+            p.vy *= 0.98;
+
+            // Lose coherence
+            p.coherence = Math.max(0, p.coherence - dt * 0.15);
+            p.alpha = Math.max(0.02, p.alpha - dt * 0.08);
+
+            // After full dissolution, prepare new generation
+            if (releaseTime > 8 && p.coherence < 0.01) {
+                p.alpha = Math.max(0, p.alpha - dt * 0.1);
+            }
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Soft boundary
+        const margin = 50;
+        if (p.x < margin) p.vx += 0.5;
+        if (p.x > W - margin) p.vx -= 0.5;
+        if (p.y < margin) p.vy += 0.5;
+        if (p.y > H - margin) p.vy -= 0.5;
+    }
+
+    // After long release, reset to new generation
+    if (!holding && releaseTime > 10) {
+        const allFaded = particles.every(p => p.alpha < 0.05);
+        if (allFaded || releaseTime > 14) {
+            initParticles();
+            releaseTime = 0;
+        }
+    }
+}
+
+function draw() {
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+    ctx.fillRect(0, 0, W, H);
+
+    const coh = avgCoherence();
+
+    // Draw connections when coherent
+    if (coh > 0.2) {
+        const connectDist = 60 + coh * 40;
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < N; i++) {
+            for (let j = i + 1; j < N; j++) {
+                const a = particles[i];
+                const b = particles[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d < connectDist) {
+                    const alpha = (1 - d / connectDist) * coh * 0.3 * Math.min(a.alpha, b.alpha);
+                    if (alpha > 0.01) {
+                        const hue = 35 + coh * 15;
+                        ctx.strokeStyle = `hsla(${hue}, 60%, 55%, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+    }
+
+    // Draw particles
+    for (const p of particles) {
+        if (p.alpha < 0.01) continue;
+        const hue = 35 + p.coherence * 20;
+        const sat = 10 + p.coherence * 60;
+        const light = 20 + p.coherence * 45;
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${p.alpha})`;
+        ctx.beginPath();
+        const size = p.size * (0.5 + p.coherence * 1);
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Info
+    const held = totalHoldTime.toFixed(0);
+    const released = totalReleaseTime.toFixed(0);
+    const gen = generation;
+    const ratio = totalHoldTime > 0 ? (totalHoldTime / (totalHoldTime + totalReleaseTime) * 100).toFixed(0) : '0';
+
+    let lines = [`generation ${gen}`];
+    if (totalHoldTime > 0) {
+        lines.push(`maintained ${held}s · dissolved ${released}s`);
+        lines.push(`${ratio}% present`);
+    }
+    if (!holding && peakCoherence > 0.3 && releaseTime > 2 && releaseTime < 8) {
+        lines.push('');
+        lines.push('nothing underneath');
+    }
+    infoEl.textContent = lines.join('\n');
+    infoEl.style.whiteSpace = 'pre';
+}
+
+initParticles();
+
+let lastTime = performance.now();
+function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
