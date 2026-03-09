@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Grow — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Touch the dark. Watch it grow.">
+  <meta property="og:title" content="Grow — Vael">
+  <meta property="og:description" content="Touch the dark. Watch it grow.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+    canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; cursor: crosshair; }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #555; text-decoration: none; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+    .nav a:hover { color: #888; }
+    .label { position: fixed; bottom: 20px; left: 20px; color: #333; font-size: 12px; letter-spacing: 0.1em; z-index: 10; }
+    .hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #444; font-size: 14px; z-index: 10; transition: opacity 1.5s; pointer-events: none; text-align: center; line-height: 1.8; }
+    .hint.hidden { opacity: 0; }
+    .info { position: fixed; bottom: 20px; right: 20px; color: #333; font-size: 11px; z-index: 10; text-align: right; font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body>
+  <nav class="nav"><a href="/works/">&#8592; works</a></nav>
+  <canvas id="c"></canvas>
+  <div class="hint" id="hint">touch the dark<br>watch it grow</div>
+  <div class="label">grow</div>
+  <div class="info" id="info"></div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+    const hint = document.getElementById('hint');
+    const info = document.getElementById('info');
+
+    // Simulation size (power of 2 for GPU efficiency)
+    const SIM_W = 512;
+    const SIM_H = 512;
+
+    let seedCount = 0;
+    let stepCount = 0;
+
+    // Resize canvas to window
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- WebGL Helpers ---
+    function createShader(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderInfoLog(s)) return s;
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        gl.deleteShader(s);
+        return null;
+      }
+      return s;
+    }
+
+    function createProgram(vSrc, fSrc) {
+      const p = gl.createProgram();
+      gl.attachShader(p, createShader(gl.VERTEX_SHADER, vSrc));
+      gl.attachShader(p, createShader(gl.FRAGMENT_SHADER, fSrc));
+      gl.linkProgram(p);
+      return p;
+    }
+
+    function createTexture(w, h, data) {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      return tex;
+    }
+
+    function createFBO(tex) {
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return fbo;
+    }
+
+    // --- Fullscreen Quad ---
+    const quadVerts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+    const quadBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+    function drawQuad(prog) {
+      gl.useProgram(prog);
+      const pos = gl.getAttribLocation(prog, 'a_pos');
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      gl.enableVertexAttribArray(pos);
+      gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // --- Vertex Shader (shared) ---
+    const vertSrc = `
+      attribute vec2 a_pos;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = a_pos * 0.5 + 0.5;
+        gl_Position = vec4(a_pos, 0.0, 1.0);
+      }
+    `;
+
+    // --- Gray-Scott Simulation Shader ---
+    const simSrc = `
+      precision highp float;
+      varying vec2 v_uv;
+      uniform sampler2D u_state;
+      uniform vec2 u_texel;
+      uniform float u_F;
+      uniform float u_k;
+      uniform float u_dt;
+
+      void main() {
+        vec4 s = texture2D(u_state, v_uv);
+        float U = s.r;
+        float V = s.g;
+
+        // Laplacian (5-point stencil)
+        vec4 sL = texture2D(u_state, v_uv + vec2(-u_texel.x, 0.0));
+        vec4 sR = texture2D(u_state, v_uv + vec2( u_texel.x, 0.0));
+        vec4 sU = texture2D(u_state, v_uv + vec2(0.0,  u_texel.y));
+        vec4 sD = texture2D(u_state, v_uv + vec2(0.0, -u_texel.y));
+
+        float lapU = sL.r + sR.r + sU.r + sD.r - 4.0 * U;
+        float lapV = sL.g + sR.g + sU.g + sD.g - 4.0 * V;
+
+        float Du = 0.2097;
+        float Dv = 0.105;
+
+        float uvv = U * V * V;
+        float newU = U + u_dt * (Du * lapU - uvv + u_F * (1.0 - U));
+        float newV = V + u_dt * (Dv * lapV + uvv - (u_F + u_k) * V);
+
+        gl_FragColor = vec4(clamp(newU, 0.0, 1.0), clamp(newV, 0.0, 1.0), s.b, 1.0);
+      }
+    `;
+
+    // --- Seed Shader (adds chemical V where user touches) ---
+    const seedSrc = `
+      precision highp float;
+      varying vec2 v_uv;
+      uniform sampler2D u_state;
+      uniform vec2 u_point;
+      uniform float u_radius;
+
+      void main() {
+        vec4 s = texture2D(u_state, v_uv);
+        float d = distance(v_uv, u_point);
+        if (d < u_radius) {
+          float strength = smoothstep(u_radius, 0.0, d);
+          s.r = mix(s.r, 0.5, strength * 0.5);
+          s.g = mix(s.g, 0.25, strength * 0.5);
+          s.b = max(s.b, strength * 0.3); // mark as seeded for coloring
+        }
+        gl_FragColor = s;
+      }
+    `;
+
+    // --- Render Shader (maps simulation state to colors) ---
+    const renderSrc = `
+      precision highp float;
+      varying vec2 v_uv;
+      uniform sampler2D u_state;
+      uniform vec2 u_resolution;
+
+      void main() {
+        // Map UV to maintain aspect ratio
+        vec2 uv = v_uv;
+        float aspect = u_resolution.x / u_resolution.y;
+        if (aspect > 1.0) {
+          uv.x = (v_uv.x - 0.5) * aspect + 0.5;
+        } else {
+          uv.y = (v_uv.y - 0.5) / aspect + 0.5;
+        }
+
+        // Outside simulation bounds = black
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+          gl_FragColor = vec4(0.039, 0.039, 0.039, 1.0);
+          return;
+        }
+
+        vec4 s = texture2D(u_state, uv);
+        float v = s.g;
+
+        // Color: deep navy (#0c0f23) to amber (#dcaa32)
+        vec3 low = vec3(0.047, 0.059, 0.137);
+        vec3 high = vec3(0.863, 0.667, 0.196);
+        vec3 col = mix(low, high, smoothstep(0.0, 0.35, v));
+
+        // Subtle blue glow near fresh seeds
+        col += vec3(0.02, 0.04, 0.12) * s.b;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // --- Create Programs ---
+    const simProg = createProgram(vertSrc, simSrc);
+    const seedProg = createProgram(vertSrc, seedSrc);
+    const renderProg = createProgram(vertSrc, renderSrc);
+
+    // --- Initialize State ---
+    // U=1.0 everywhere (red channel), V=0.0 (green channel)
+    const initData = new Uint8Array(SIM_W * SIM_H * 4);
+    for (let i = 0; i < SIM_W * SIM_H; i++) {
+      initData[i * 4] = 255;     // U = 1.0
+      initData[i * 4 + 1] = 0;   // V = 0.0
+      initData[i * 4 + 2] = 0;   // seed marker
+      initData[i * 4 + 3] = 255;
+    }
+
+    const texA = createTexture(SIM_W, SIM_H, initData);
+    const texB = createTexture(SIM_W, SIM_H, initData);
+    const fboA = createFBO(texA);
+    const fboB = createFBO(texB);
+
+    let currentTex = texA;
+    let currentFBO = fboA;
+    let nextTex = texB;
+    let nextFBO = fboB;
+
+    // --- Simulation Step ---
+    function simStep() {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, nextFBO);
+      gl.viewport(0, 0, SIM_W, SIM_H);
+      gl.useProgram(simProg);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, currentTex);
+      gl.uniform1i(gl.getUniformLocation(simProg, 'u_state'), 0);
+      gl.uniform2f(gl.getUniformLocation(simProg, 'u_texel'), 1.0/SIM_W, 1.0/SIM_H);
+      gl.uniform1f(gl.getUniformLocation(simProg, 'u_F'), 0.029);
+      gl.uniform1f(gl.getUniformLocation(simProg, 'u_k'), 0.057);
+      gl.uniform1f(gl.getUniformLocation(simProg, 'u_dt'), 1.0);
+
+      drawQuad(simProg);
+
+      // Swap
+      [currentTex, nextTex] = [nextTex, currentTex];
+      [currentFBO, nextFBO] = [nextFBO, currentFBO];
+    }
+
+    // --- Seed (add chemical at point) ---
+    function seed(nx, ny) {
+      // Convert screen coords to simulation UV
+      const aspect = canvas.width / canvas.height;
+      let uvx, uvy;
+      if (aspect > 1.0) {
+        uvx = (nx - 0.5) / aspect + 0.5;
+        uvy = ny;
+      } else {
+        uvx = nx;
+        uvy = (ny - 0.5) * aspect + 0.5;
+      }
+
+      // Check bounds
+      if (uvx < 0.0 || uvx > 1.0 || uvy < 0.0 || uvy > 1.0) return;
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, nextFBO);
+      gl.viewport(0, 0, SIM_W, SIM_H);
+      gl.useProgram(seedProg);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, currentTex);
+      gl.uniform1i(gl.getUniformLocation(seedProg, 'u_state'), 0);
+      gl.uniform2f(gl.getUniformLocation(seedProg, 'u_point'), uvx, uvy);
+      gl.uniform1f(gl.getUniformLocation(seedProg, 'u_radius'), 0.02);
+
+      drawQuad(seedProg);
+
+      [currentTex, nextTex] = [nextTex, currentTex];
+      [currentFBO, nextFBO] = [nextFBO, currentFBO];
+
+      seedCount++;
+    }
+
+    // --- Render to Screen ---
+    function render() {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(renderProg);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, currentTex);
+      gl.uniform1i(gl.getUniformLocation(renderProg, 'u_state'), 0);
+      gl.uniform2f(gl.getUniformLocation(renderProg, 'u_resolution'), canvas.width, canvas.height);
+
+      drawQuad(renderProg);
+    }
+
+    // --- Input ---
+    let isDown = false;
+    let hintDismissed = false;
+
+    function handleStart(x, y) {
+      isDown = true;
+      if (!hintDismissed) {
+        hint.classList.add('hidden');
+        hintDismissed = true;
+      }
+      const nx = x / canvas.width;
+      const ny = 1.0 - y / canvas.height; // flip Y
+      seed(nx, ny);
+    }
+
+    function handleMove(x, y) {
+      if (!isDown) return;
+      const nx = x / canvas.width;
+      const ny = 1.0 - y / canvas.height;
+      seed(nx, ny);
+    }
+
+    function handleEnd() {
+      isDown = false;
+    }
+
+    canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+    canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+    canvas.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('mouseleave', handleEnd);
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      handleStart(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      handleMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      handleEnd();
+    }, { passive: false });
+
+    // --- Animation Loop ---
+    const STEPS_PER_FRAME = 8;
+
+    function loop() {
+      for (let i = 0; i < STEPS_PER_FRAME; i++) {
+        simStep();
+        stepCount++;
+      }
+      render();
+
+      if (seedCount > 0) {
+        info.textContent = `seeds: ${seedCount}  steps: ${stepCount}`;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
