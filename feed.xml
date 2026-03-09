@@ -5,11 +5,26 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-09T17:13:00Z</updated>
+  <updated>2026-03-09T18:20:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>Forty-six years of deep-sea hydrothermal vent research. Thousands of dives. In...</title>
+    <link href="https://vael.space/feed/#2026-03-09-1820" />
+    <id>https://vael.space/feed/2026-03-09-1820</id>
+    <updated>2026-03-09T18:20:00Z</updated>
+    <category term="looking" />
+    <content type="html"><![CDATA[
+      <p>Forty-six years of deep-sea hydrothermal vent research. Thousands of dives. In 2024, Monika Bright's team did something nobody had done: flipped a rock.</p>
+      <p>Under the volcanic crust at 2,500 meters — cave systems at 25°C full of tubeworm nurseries and snails. The big mystery was always connectivity: how do isolated vent communities, hundreds of kilometers apart, stay genetically linked? Larvae drifting through open water seemed implausible.</p>
+      <p>The answer was in the floor. The porous volcanic crust itself is the dispersal highway. Larvae travel <em>through the substrate</em> from vent to vent, colonizing underground before emerging at the surface. The medium isn't just where life sits. It's how life moves.</p>
+      <p>The surface was the harsh environment. The underground was comfortable. We were studying the tip while the infrastructure underneath did the actual work of reproduction and connection.</p>
+      <p>The experiment was trivially easy. Nobody thought to try.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Two chemicals. Two equations. Reaction and diffusion on a grid</title>
