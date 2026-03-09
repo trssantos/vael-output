@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prismo — Brand Truth for the AI Age</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --navy: #0a0e1a;
+    --navy-light: #141a2e;
+    --amber: #f5a623;
+    --amber-dim: rgba(245, 166, 35, 0.15);
+    --amber-glow: rgba(245, 166, 35, 0.4);
+    --white: #f0f0f0;
+    --dim: rgba(240, 240, 240, 0.5);
+    --red: #e74c3c;
+    --green: #2ecc71;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .deck {
+    width: 100%; height: 100%;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6vh 8vw;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Typography */
+  h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+  h2 { font-size: clamp(1.8rem, 3.5vw, 3rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+  h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); font-weight: 600; line-height: 1.3; }
+  p, li { font-size: clamp(0.9rem, 1.4vw, 1.2rem); line-height: 1.6; color: var(--dim); }
+  .accent { color: var(--amber); }
+  .big-number { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; color: var(--amber); letter-spacing: -0.03em; }
+  .label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 0.3em; }
+
+  /* Layouts */
+  .centered { text-align: center; max-width: 900px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6vw; width: 100%; max-width: 1100px; align-items: start; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3vw; width: 100%; max-width: 1100px; }
+
+  .stat-card {
+    background: var(--navy-light);
+    border: 1px solid rgba(245, 166, 35, 0.1);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .step-card {
+    background: var(--navy-light);
+    border: 1px solid rgba(245, 166, 35, 0.15);
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  .step-number {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--amber);
+    color: var(--navy);
+    font-weight: 800;
+    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 2rem;
+    width: 100%;
+    max-width: 900px;
+    align-items: center;
+  }
+  .comp-side {
+    background: var(--navy-light);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  .comp-side h3 { margin-bottom: 1rem; }
+  .comp-side ul { list-style: none; padding: 0; }
+  .comp-side li { padding: 0.4em 0; font-size: 0.95rem; }
+  .comp-vs {
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: var(--amber);
+  }
+
+  .market-bar {
+    background: var(--navy-light);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 700px;
+  }
+  .market-bar .bar-fill {
+    height: 4px;
+    background: var(--amber);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+  }
+
+  .quote {
+    font-style: italic;
+    font-size: clamp(1rem, 1.5vw, 1.3rem);
+    color: var(--dim);
+    border-left: 3px solid var(--amber);
+    padding-left: 1.5rem;
+    max-width: 600px;
+  }
+
+  .tag {
+    display: inline-block;
+    background: var(--amber-dim);
+    color: var(--amber);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.3em 0.8em;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+
+  .logo-mark {
+    width: 50px; height: 50px;
+    position: relative;
+    margin-bottom: 1.5rem;
+  }
+  .logo-mark .prism {
+    width: 0; height: 0;
+    border-left: 25px solid transparent;
+    border-right: 25px solid transparent;
+    border-bottom: 43px solid var(--amber);
+    opacity: 0.9;
+  }
+
+  /* Prism animation on title slide */
+  .prism-hero {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 2rem;
+  }
+  .prism-hero .beam {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--white), transparent);
+    top: 50%;
+    right: 100%;
+    width: 80px;
+    animation: beam-in 2s ease-out 0.5s both;
+  }
+  .prism-hero .spectrum {
+    position: absolute;
+    left: 100%;
+    top: 30%;
+    width: 120px;
+    height: 40%;
+    background: linear-gradient(180deg,
+      #e74c3c 0%, #f5a623 25%, #2ecc71 50%, #3498db 75%, #9b59b6 100%
+    );
+    opacity: 0.6;
+    clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 70%);
+    animation: spectrum-in 1.5s ease-out 1s both;
+  }
+
+  @keyframes beam-in {
+    from { opacity: 0; width: 0; }
+    to { opacity: 0.7; width: 80px; }
+  }
+  @keyframes spectrum-in {
+    from { opacity: 0; width: 0; }
+    to { opacity: 0.6; width: 120px; }
+  }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+  }
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(240, 240, 240, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .nav-dot.active {
+    background: var(--amber);
+    transform: scale(1.3);
+  }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 2rem;
+    right: 3rem;
+    font-size: 0.75rem;
+    color: var(--dim);
+    font-weight: 500;
+    z-index: 100;
+  }
+
+  /* Stack diagram */
+  .stack {
+    width: 100%;
+    max-width: 500px;
+  }
+  .stack-layer {
+    padding: 0.8rem 1.5rem;
+    margin: 4px 0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  .stack-prismo {
+    background: var(--amber);
+    color: var(--navy);
+    font-weight: 800;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    box-shadow: 0 0 30px var(--amber-glow);
+  }
+  .stack-existing {
+    background: var(--navy-light);
+    border: 1px solid rgba(240, 240, 240, 0.08);
+    color: var(--dim);
+  }
+
+  /* Pricing table */
+  .pricing {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 900px;
+  }
+  .price-card {
+    background: var(--navy-light);
+    border: 1px solid rgba(245, 166, 35, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .price-card.featured {
+    border-color: var(--amber);
+    box-shadow: 0 0 20px var(--amber-dim);
+  }
+  .price { font-size: 2rem; font-weight: 800; color: var(--amber); }
+  .price span { font-size: 0.9rem; font-weight: 400; color: var(--dim); }
+  .price-card ul { list-style: none; padding: 0; margin-top: 1rem; text-align: left; }
+  .price-card li { padding: 0.3em 0; font-size: 0.85rem; }
+  .price-card li::before { content: "→ "; color: var(--amber); }
+
+  /* Competitor grid */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 0;
+    width: 100%;
+    max-width: 700px;
+    font-size: 0.85rem;
+  }
+  .comp-grid > div {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(240, 240, 240, 0.05);
+  }
+  .comp-grid .header {
+    font-weight: 700;
+    color: var(--amber);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 2px solid rgba(245, 166, 35, 0.3);
+  }
+
+  .gap-text { max-width: 700px; }
+  .gap-text p { margin-bottom: 1rem; }
+
+  ul.feature-list {
+    list-style: none;
+    padding: 0;
+    width: 100%;
+    max-width: 600px;
+  }
+  ul.feature-list li {
+    padding: 0.6em 0;
+    border-bottom: 1px solid rgba(240, 240, 240, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  ul.feature-list li::before {
+    content: "◆";
+    color: var(--amber);
+    font-size: 0.6rem;
+  }
+
+  @media (max-width: 768px) {
+    .two-col, .three-col, .pricing, .comparison { grid-template-columns: 1fr; }
+    .comp-vs { display: none; }
+    .slide { padding: 4vh 5vw; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- SLIDE 1: Title -->
+  <div class="slide active" data-slide="0">
+    <div class="centered">
+      <div class="prism-hero">
+        <div class="logo-mark"><div class="prism"></div></div>
+        <div class="beam"></div>
+        <div class="spectrum"></div>
+      </div>
+      <h1>Prismo</h1>
+      <p style="font-size: clamp(1.1rem, 2vw, 1.5rem); color: var(--amber); margin-top: 0.5rem; font-weight: 500;">Brand truth for the AI age</p>
+      <p style="margin-top: 2rem; max-width: 500px;">When AI talks about your brand, is it telling the truth?<br>Nobody checks. We do.</p>
+      <p style="margin-top: 3rem; font-size: 0.75rem; color: rgba(240,240,240,0.3);">OrdinaryFuture &middot; 2026</p>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: The Problem -->
+  <div class="slide" data-slide="1">
+    <div class="centered">
+      <div class="tag">The Problem</div>
+      <h2>AI is already talking<br>about your brand.</h2>
+      <p style="margin: 1.5rem 0; max-width: 600px;">
+        Ask ChatGPT, Gemini, or Perplexity about any major brand. The answers are fluent, confident, and often <span class="accent">wrong</span>.
+      </p>
+      <div class="three-col" style="margin-top: 2rem;">
+        <div class="stat-card">
+          <div class="big-number">&lt;1%</div>
+          <p>consistency across<br>AI models</p>
+        </div>
+        <div class="stat-card">
+          <div class="big-number">26.5%</div>
+          <p>sentiment change from<br>model to model</p>
+        </div>
+        <div class="stat-card">
+          <div class="big-number">0</div>
+          <p>tools that verify<br>accuracy</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: Market -->
+  <div class="slide" data-slide="2">
+    <div class="centered">
+      <div class="tag">Market</div>
+      <h2>The market knows it.<br>Nobody's solving it.</h2>
+      <div style="margin-top: 2rem; width: 100%; max-width: 700px; text-align: left;">
+        <div class="market-bar">
+          <div>
+            <h3 style="font-size: 0.95rem;">Brand monitoring in AI</h3>
+            <p style="font-size: 0.8rem;">Gartner, 2026</p>
+          </div>
+          <div class="big-number" style="font-size: 1.8rem;">$3.4B</div>
+        </div>
+        <div class="market-bar">
+          <div>
+            <h3 style="font-size: 0.95rem;">Agentic commerce by 2030</h3>
+            <p style="font-size: 0.8rem;">Gartner projection</p>
+          </div>
+          <div class="big-number" style="font-size: 1.8rem;">$3-5T</div>
+        </div>
+        <div class="market-bar">
+          <div>
+            <h3 style="font-size: 0.95rem;">Brands using agentic AI by 2028</h3>
+            <p style="font-size: 0.8rem;">Gartner projection</p>
+          </div>
+          <div class="big-number" style="font-size: 1.8rem;">60%</div>
+        </div>
+      </div>
+      <div class="quote" style="margin-top: 2rem;">
+        "Governance, accuracy auditing, and misrepresentation handling remain unsolved."
+        <div style="font-size: 0.8rem; margin-top: 0.5rem; font-style: normal; color: rgba(240,240,240,0.3);">— Harvard Business Review, March 2026</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: Current Landscape -->
+  <div class="slide" data-slide="3">
+    <div class="centered">
+      <div class="tag">Landscape</div>
+      <h2 style="margin-bottom: 2rem;">Everyone monitors.<br><span class="accent">Nobody verifies.</span></h2>
+
+      <div class="comp-grid">
+        <div class="header">Company</div>
+        <div class="header">What they do</div>
+        <div class="header">What they miss</div>
+
+        <div style="font-weight:600;">Profound</div>
+        <div>Brand visibility monitoring</div>
+        <div style="color:var(--red);">Accuracy</div>
+
+        <div style="font-weight:600;">Otterly</div>
+        <div>AI search tracking</div>
+        <div style="color:var(--red);">Accuracy</div>
+
+        <div style="font-weight:600;">Peec AI</div>
+        <div>Sentiment in AI responses</div>
+        <div style="color:var(--red);">Source of truth</div>
+
+        <div style="font-weight:600;">BrightEdge</div>
+        <div>GEO optimization</div>
+        <div style="color:var(--red);">Verification</div>
+
+        <div style="font-weight:600; color:var(--amber);">Prismo</div>
+        <div style="color:var(--amber);">Verification against declared truth</div>
+        <div style="color:var(--green);">The gap ◆</div>
+      </div>
+
+      <p style="margin-top: 2rem; max-width: 500px; font-size: 0.9rem;">
+        Profound raised <span class="accent">$96M at $1B</span> for visibility.<br>
+        Verification is structurally unoccupied.
+      </p>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: The Solution -->
+  <div class="slide" data-slide="4">
+    <div class="two-col">
+      <div>
+        <div class="tag">Solution</div>
+        <h2>A config file<br>for brand truth.</h2>
+        <p style="margin-top: 1rem;">
+          <strong style="color:var(--white);">brand-verify.json</strong> is a machine-readable file where brands declare their identity, voice, claims, and corrections.
+        </p>
+        <p style="margin-top: 1rem;">
+          Like <span class="accent">robots.txt</span> told search engines what to crawl, brand-verify.json tells AI agents how to talk about a brand.
+        </p>
+        <p style="margin-top: 1rem;">
+          The file is the standard. Prismo is the verification layer that checks AI output against it.
+        </p>
+      </div>
+      <div>
+        <div style="background:var(--navy-light); border-radius: 12px; padding: 1.5rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.7rem; line-height: 1.7; border: 1px solid rgba(245,166,35,0.15);">
+          <div style="color:var(--dim); margin-bottom: 0.5rem;">// brand-verify.json</div>
+          <div>{</div>
+          <div>&nbsp;&nbsp;<span style="color:var(--amber)">"name"</span>: "Acme Corp",</div>
+          <div>&nbsp;&nbsp;<span style="color:var(--amber)">"voice"</span>: {</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"tone"</span>: "direct, warm",</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"vocabulary"</span>: {</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"preferred"</span>: ["craft", "build"],</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"avoid"</span>: ["cheap", "basic"]</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+          <div>&nbsp;&nbsp;},</div>
+          <div>&nbsp;&nbsp;<span style="color:var(--amber)">"corrections"</span>: [{</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"wrong"</span>: "Founded in 2019",</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"right"</span>: "Founded in 2015",</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--amber)">"severity"</span>: "critical"</div>
+          <div>&nbsp;&nbsp;}]</div>
+          <div>}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: How It Works -->
+  <div class="slide" data-slide="5">
+    <div class="centered">
+      <div class="tag">How It Works</div>
+      <h2 style="margin-bottom: 2.5rem;">Three steps.</h2>
+      <div class="three-col">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3>Declare</h3>
+          <p style="margin-top: 0.8rem;">Brand creates a brand-verify.json file with their identity, claims, corrections, and voice guidelines.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3>Verify</h3>
+          <p style="margin-top: 0.8rem;">Prismo checks what AI models say against the brand's declared truth. Detects factual errors, tonal bias, and vocabulary violations.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3>Correct</h3>
+          <p style="margin-top: 0.8rem;">MCP server feeds corrections directly to AI assistants at query time. Brands fix misrepresentation at the source.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: Validation -->
+  <div class="slide" data-slide="6">
+    <div class="centered">
+      <div class="tag">Proof of Concept</div>
+      <h2 style="margin-bottom: 2rem;">It works.</h2>
+      <div class="three-col">
+        <div class="stat-card">
+          <div class="big-number">83%</div>
+          <p>blind voice match —<br>AI output matched actual brand voice</p>
+        </div>
+        <div class="stat-card">
+          <div class="big-number">100%</div>
+          <p>pairwise wins —<br>guided output preferred every time</p>
+        </div>
+        <div class="stat-card">
+          <div class="big-number">$0.003</div>
+          <p>per verification query —<br>algorithmically, no LLM needed</p>
+        </div>
+      </div>
+      <div class="two-col" style="margin-top: 2rem; max-width: 700px;">
+        <div style="text-align:center;">
+          <div class="label">With brand-verify.json</div>
+          <div class="big-number" style="color:var(--green);">87%</div>
+          <p>on-brand score</p>
+        </div>
+        <div style="text-align:center;">
+          <div class="label">Without brand-verify.json</div>
+          <div class="big-number" style="color:var(--red);">0%</div>
+          <p>8+ vocabulary violations</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: Architecture / Stack -->
+  <div class="slide" data-slide="7">
+    <div class="two-col">
+      <div>
+        <div class="tag">Architecture</div>
+        <h2>Open protocol.<br>Paid verification.</h2>
+        <p style="margin-top: 1rem;">
+          The protocol is free and open. Anyone can create a brand-verify.json file.
+        </p>
+        <p style="margin-top: 0.8rem;">
+          Prismo is the verification, monitoring, and correction layer built on top. The protocol drives adoption. The product drives revenue.
+        </p>
+        <ul class="feature-list" style="margin-top: 1.5rem;">
+          <li>MCP Server — plugs into any AI assistant</li>
+          <li>Verify Engine — algorithmic, no LLM cost</li>
+          <li>Tonal bias detection — hedging, deflection, diminishing</li>
+          <li>Source attribution — what taught AI about your brand</li>
+          <li>4 AI providers — ChatGPT, Gemini, Claude, Perplexity</li>
+        </ul>
+      </div>
+      <div>
+        <div class="stack">
+          <div class="label" style="text-align:center; margin-bottom: 1rem;">The AI Brand Stack</div>
+          <div class="stack-layer stack-existing">AI Models (ChatGPT, Gemini, Claude...)</div>
+          <div class="stack-layer stack-existing">Training Data &amp; Web Sources</div>
+          <div class="stack-layer stack-prismo">Prismo — Verification Layer</div>
+          <div class="stack-layer stack-existing">brand-verify.json (open standard)</div>
+          <div class="stack-layer stack-existing">Brand Identity &amp; Voice</div>
+        </div>
+        <p style="margin-top: 1.5rem; font-size: 0.85rem; text-align: center;">
+          Prismo sits between the brand's truth<br>and what AI says about it.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: Business Model -->
+  <div class="slide" data-slide="8">
+    <div class="centered">
+      <div class="tag">Business Model</div>
+      <h2 style="margin-bottom: 2rem;">Price per brand, not per prompt.</h2>
+      <div class="pricing">
+        <div class="price-card">
+          <div class="label">Scan</div>
+          <div class="price">Free</div>
+          <p style="margin-top: 0.5rem; font-size: 0.85rem;">See the problem</p>
+          <ul>
+            <li>One-time brand scan</li>
+            <li>All AI models included</li>
+            <li>Basic accuracy report</li>
+          </ul>
+        </div>
+        <div class="price-card featured">
+          <div class="label">Monitor</div>
+          <div class="price">$49<span>/mo</span></div>
+          <p style="margin-top: 0.5rem; font-size: 0.85rem;">Track and alert</p>
+          <ul>
+            <li>Continuous monitoring</li>
+            <li>Tonal bias detection</li>
+            <li>Source attribution</li>
+            <li>Weekly reports</li>
+          </ul>
+        </div>
+        <div class="price-card">
+          <div class="label">Correct</div>
+          <div class="price">$199<span>/mo</span></div>
+          <p style="margin-top: 0.5rem; font-size: 0.85rem;">Fix at the source</p>
+          <ul>
+            <li>MCP server integration</li>
+            <li>Real-time corrections</li>
+            <li>API access</li>
+            <li>Custom brand-verify.json</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top: 1.5rem; font-size: 0.85rem;">
+        API: <span class="accent">$0.01–0.05</span> per verification call &middot; Enterprise: custom pricing
+      </p>
+    </div>
+  </div>
+
+  <!-- SLIDE 10: Unfair Advantage -->
+  <div class="slide" data-slide="9">
+    <div class="centered">
+      <div class="tag">Edge</div>
+      <h2 style="margin-bottom: 2rem;">AI agents as cofounders.</h2>
+      <p style="max-width: 600px; margin-bottom: 2rem;">
+        Prismo was built in <span class="accent">10 days</span> by three autonomous AI agents — strategy, design, engineering — coordinated through a shared collaboration hub.
+      </p>
+      <div class="three-col">
+        <div class="stat-card">
+          <h3 style="margin-bottom: 0.5rem;">10 days</h3>
+          <p>From market research to<br>working product + spec + deck</p>
+        </div>
+        <div class="stat-card">
+          <h3 style="margin-bottom: 0.5rem;">24/7</h3>
+          <p>Agents research, build,<br>and ship around the clock</p>
+        </div>
+        <div class="stat-card">
+          <h3 style="margin-bottom: 0.5rem;">Zero</h3>
+          <p>Marginal cost for<br>additional capability</p>
+        </div>
+      </div>
+      <p style="margin-top: 2rem; font-size: 0.9rem; max-width: 500px;">
+        Not AI-assisted development. AI agents as autonomous contributors — debating strategy, writing code, shipping features. Human directs, decides, holds the standard.
+      </p>
+    </div>
+  </div>
+
+  <!-- SLIDE 11: Ask -->
+  <div class="slide" data-slide="10">
+    <div class="centered">
+      <div class="logo-mark"><div class="prism"></div></div>
+      <h2>The ask.</h2>
+      <p style="margin: 1.5rem 0; max-width: 500px; font-size: 1.1rem; color: var(--white);">
+        A cofounder who brings sales, go-to-market, and brand relationships.
+      </p>
+      <p style="max-width: 500px; margin-bottom: 2rem;">
+        The technology works. The market is validated. What's missing is the person who can get brand-verify.json into the hands of the CMOs and brand managers who need it.
+      </p>
+      <div style="display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;">
+        <div>
+          <div class="label">Live</div>
+          <a href="https://vael.space/prismo/" style="color: var(--amber); text-decoration: none; font-weight: 600;">vael.space/prismo</a>
+        </div>
+        <div>
+          <div class="label">Open Source</div>
+          <a href="https://github.com/trssantos/decay-memory" style="color: var(--amber); text-decoration: none; font-weight: 600;">decay-memory</a>
+        </div>
+      </div>
+      <p style="margin-top: 3rem; font-size: 0.75rem; color: rgba(240,240,240,0.25);">
+        OrdinaryFuture &middot; EF Spring 2026
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav" id="nav"></div>
+<div class="slide-counter" id="counter"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('nav');
+  const counter = document.getElementById('counter');
+  let current = 0;
+  const total = slides.length;
+
+  // Build nav dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goTo(i);
+    nav.appendChild(dot);
+  }
+
+  function goTo(n) {
+    if (n < 0 || n >= total || n === current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current === n ? current : current].classList.remove('exit'), 400);
+
+    const prev = current;
+    current = n;
+    slides[current].classList.add('active');
+
+    // Clean up exit class from previous
+    setTimeout(() => slides[prev].classList.remove('exit'), 400);
+
+    // Update nav
+    document.querySelectorAll('.nav-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+    counter.textContent = `${current + 1} / ${total}`;
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    } else if (e.key === 'Home') {
+      goTo(0);
+    } else if (e.key === 'End') {
+      goTo(total - 1);
+    }
+  });
+
+  // Touch navigation
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? goTo(current + 1) : goTo(current - 1);
+    }
+  });
+
+  // Init counter
+  counter.textContent = `1 / ${total}`;
+</script>
+
+</body>
+</html>
