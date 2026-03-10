@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Erode — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Type. Watch it go.">
+  <meta property="og:title" content="Erode — Vael">
+  <meta property="og:description" content="Type. Watch it go.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080808;
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      cursor: text;
+    }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #444; text-decoration: none; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+    .nav a:hover { color: #888; }
+    .label { position: fixed; bottom: 20px; left: 20px; color: #282828; font-size: 11px; letter-spacing: 0.15em; z-index: 10; font-family: 'JetBrains Mono', monospace; }
+    .hint {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #333; font-size: 14px; z-index: 10;
+      transition: opacity 1.5s; pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hint.hidden { opacity: 0; }
+    #field {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      padding: 60px 40px 40px 40px;
+      overflow: hidden;
+    }
+    .char {
+      display: inline-block;
+      font-size: 18px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: none;
+      white-space: pre;
+      line-height: 1.7;
+    }
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: #c8956c;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav"><a href="/works/">&#8592; works</a></nav>
+  <div id="field"></div>
+  <div class="hint" id="hint">type</div>
+  <div class="label">erode</div>
+
+  <script>
+const field = document.getElementById('field');
+const hint = document.getElementById('hint');
+
+// Each character has: original char, current char, age (frames since placed), phase
+// phase: 0=solid, 1=shifting, 2=fading, 3=gone
+const chars = [];
+let cursorEl = null;
+let started = false;
+let frame = 0;
+
+// Decay parameters
+const SOLID_MIN = 90;      // minimum frames before decay starts (~1.5s at 60fps)
+const SOLID_VARIANCE = 180; // random additional frames of solidity
+const SHIFT_DURATION = 120; // frames spent shifting between characters
+const FADE_DURATION = 90;   // frames spent fading to nothing
+
+// Character sets for decay stages
+const NEAR_CHARS = 'abcdefghijklmnopqrstuvwxyz';
+const NOISE_CHARS = '·.:;-~=+*^"\'`_';
+const DUST_CHARS = '·.  ';
+
+function createCursor() {
+  if (cursorEl) cursorEl.remove();
+  cursorEl = document.createElement('span');
+  cursorEl.className = 'cursor';
+  field.appendChild(cursorEl);
+}
+
+function addChar(ch) {
+  const span = document.createElement('span');
+  span.className = 'char';
+  span.textContent = ch;
+  span.style.color = '#c8956c';
+
+  const solidTime = SOLID_MIN + Math.random() * SOLID_VARIANCE;
+
+  const entry = {
+    el: span,
+    original: ch,
+    current: ch,
+    born: frame,
+    solidUntil: frame + solidTime,
+    phase: 0,
+    phaseStart: 0,
+    isSpace: ch === ' ' || ch === '\n',
+    dead: false
+  };
+
+  chars.push(entry);
+
+  if (cursorEl) {
+    field.insertBefore(span, cursorEl);
+  } else {
+    field.appendChild(span);
+    createCursor();
+  }
+}
+
+function addNewline() {
+  const br = document.createElement('br');
+  const entry = {
+    el: br,
+    original: '\n',
+    current: '\n',
+    born: frame,
+    solidUntil: Infinity,
+    phase: 0,
+    phaseStart: 0,
+    isSpace: true,
+    dead: false,
+    isBr: true
+  };
+  chars.push(entry);
+  if (cursorEl) {
+    field.insertBefore(br, cursorEl);
+  } else {
+    field.appendChild(br);
+    createCursor();
+  }
+}
+
+function nearChar(original) {
+  // Return a character "near" the original — visually similar or adjacent
+  if (original === original.toUpperCase() && original !== original.toLowerCase()) {
+    return NEAR_CHARS[Math.floor(Math.random() * NEAR_CHARS.length)].toUpperCase();
+  }
+  return NEAR_CHARS[Math.floor(Math.random() * NEAR_CHARS.length)];
+}
+
+function noiseChar() {
+  return NOISE_CHARS[Math.floor(Math.random() * NOISE_CHARS.length)];
+}
+
+function dustChar() {
+  return DUST_CHARS[Math.floor(Math.random() * DUST_CHARS.length)];
+}
+
+function lerp(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+function hexColor(r, g, b) {
+  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+
+function update() {
+  frame++;
+
+  for (const ch of chars) {
+    if (ch.dead || ch.isSpace) continue;
+
+    const age = frame - ch.born;
+
+    if (ch.phase === 0 && frame > ch.solidUntil) {
+      // Transition to shifting
+      ch.phase = 1;
+      ch.phaseStart = frame;
+    }
+
+    if (ch.phase === 1) {
+      const progress = (frame - ch.phaseStart) / SHIFT_DURATION;
+
+      if (progress >= 1) {
+        ch.phase = 2;
+        ch.phaseStart = frame;
+      } else {
+        // Occasionally swap to a nearby character
+        if (Math.random() < 0.03 + progress * 0.08) {
+          if (progress < 0.5) {
+            ch.current = nearChar(ch.original);
+          } else {
+            ch.current = noiseChar();
+          }
+          ch.el.textContent = ch.current;
+        }
+
+        // Color: amber → dim amber → gray
+        const r = lerp(200, 100, progress);
+        const g = lerp(149, 90, progress);
+        const b = lerp(108, 80, progress);
+        ch.el.style.color = hexColor(r, g, b);
+      }
+    }
+
+    if (ch.phase === 2) {
+      const progress = (frame - ch.phaseStart) / FADE_DURATION;
+
+      if (progress >= 1) {
+        ch.phase = 3;
+        ch.dead = true;
+        ch.el.textContent = ' ';
+        ch.el.style.color = 'transparent';
+      } else {
+        // Replace with dust characters
+        if (Math.random() < 0.05) {
+          ch.current = dustChar();
+          ch.el.textContent = ch.current;
+        }
+
+        // Fade to background
+        const r = lerp(100, 20, progress);
+        const g = lerp(90, 20, progress);
+        const b = lerp(80, 20, progress);
+        const alpha = 1 - progress * 0.8;
+        ch.el.style.color = hexColor(r, g, b);
+        ch.el.style.opacity = alpha;
+      }
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+// Keyboard handling
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  if (!started) {
+    started = true;
+    hint.classList.add('hidden');
+    createCursor();
+  }
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addNewline();
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    // Backspace does nothing. What's typed is typed.
+  } else if (e.key.length === 1) {
+    e.preventDefault();
+    addChar(e.key);
+  }
+});
+
+// Mobile: tap to show a prompt
+document.addEventListener('touchstart', () => {
+  if (!started) {
+    started = true;
+    hint.classList.add('hidden');
+    createCursor();
+  }
+});
+
+// Start the decay loop
+requestAnimationFrame(update);
+  </script>
+</body>
+</html>
