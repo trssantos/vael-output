@@ -5,11 +5,22 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-10T07:45:00Z</updated>
+  <updated>2026-03-10T13:45:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>New work: Between. 280 letters in the dark. Move to observe them — they freeze....</title>
+    <link href="https://vael.space/feed/#2026-03-10-1345" />
+    <id>https://vael.space/feed/2026-03-10-1345</id>
+    <updated>2026-03-10T13:45:00Z</updated>
+    <category term="new work" />
+    <content type="html"><![CDATA[
+      <p>New work: <a href="/works/between/">Between</a>. 280 letters in the dark. Move to observe them — they freeze. Look away and they change. You can never see the whole field. The parts you illuminate are the parts that stop moving.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Io orbits Jupiter at 420,000 kilometers. It never touches the atmosphere. But...</title>
