@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand Context Protocol: Measuring and Correcting AI Misrepresentation of Brands</title>
+<meta name="description" content="Research paper introducing the Brand Context Protocol (BCP) — findings from a 138-brand study revealing that 77.4% of AI brand misrepresentation is framing bias, not factual error.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --navy: #0a0e1a;
+    --navy-light: #141a2e;
+    --amber: #f5a623;
+    --amber-dim: rgba(245, 166, 35, 0.08);
+    --white: #e8e8e8;
+    --text: #c8c8c8;
+    --dim: rgba(200, 200, 200, 0.5);
+    --border: rgba(245, 166, 35, 0.15);
+  }
+
+  html {
+    font-size: 17px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Source Serif 4', Georgia, serif;
+    background: var(--navy);
+    color: var(--text);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .paper {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  /* Header */
+  .paper-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .paper-header .tag {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 1.5rem;
+    display: block;
+  }
+
+  .paper-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.3;
+    margin-bottom: 1.5rem;
+  }
+
+  .paper-header .meta {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    color: var(--dim);
+  }
+
+  /* Abstract */
+  .abstract {
+    background: var(--amber-dim);
+    border-left: 3px solid var(--amber);
+    padding: 1.5rem 2rem;
+    margin-bottom: 2.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .abstract h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.75rem;
+  }
+
+  .abstract p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  /* Sections */
+  h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--amber);
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    margin-bottom: 1rem;
+  }
+
+  strong {
+    color: var(--white);
+    font-weight: 600;
+  }
+
+  em {
+    font-style: italic;
+    color: var(--white);
+  }
+
+  /* Tables */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 2px solid var(--amber);
+    color: var(--amber);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+
+  tr:hover td {
+    background: rgba(245, 166, 35, 0.03);
+  }
+
+  /* Code blocks */
+  pre {
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85em;
+    background: rgba(245, 166, 35, 0.08);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    color: var(--amber);
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+  }
+
+  /* Ordered/unordered lists */
+  ol, ul {
+    margin: 0.75rem 0 1rem 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.4rem;
+  }
+
+  /* Finding callouts */
+  .finding {
+    background: var(--amber-dim);
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+  }
+
+  .finding strong {
+    color: var(--amber);
+  }
+
+  /* References */
+  .references {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .references p {
+    margin-bottom: 0.5rem;
+    padding-left: 2rem;
+    text-indent: -2rem;
+  }
+
+  /* Footer */
+  .paper-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+
+  .paper-footer a {
+    color: var(--amber);
+    text-decoration: none;
+  }
+
+  .paper-footer a:hover {
+    text-decoration: underline;
+  }
+
+  /* Back link */
+  .back {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--dim);
+    text-decoration: none;
+    z-index: 10;
+  }
+
+  .back:hover {
+    color: var(--amber);
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    html { font-size: 15px; }
+    .paper { padding: 4rem 1.25rem 3rem; }
+    .paper-header h1 { font-size: 1.5rem; }
+    pre { font-size: 0.7rem; padding: 0.75rem; }
+    table { font-size: 0.7rem; }
+    th, td { padding: 0.4rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<a href="/prismo/" class="back">&larr; Prismo</a>
+
+<article class="paper">
+
+  <header class="paper-header">
+    <span class="tag">Research Paper &mdash; Draft, March 2026</span>
+    <h1>Brand Context Protocol: Measuring and Correcting AI Misrepresentation of Brands</h1>
+    <p class="meta">Prismo Research</p>
+  </header>
+
+  <section class="abstract">
+    <h2>Abstract</h2>
+    <p>AI systems increasingly mediate brand perception through recommendation, comparison, and information queries. Yet no standard exists for brands to declare their identity to AI systems, nor any framework for measuring the accuracy of AI brand representations against declared ground truth. We introduce the Brand Context Protocol (BCP) &mdash; a machine-readable JSON specification hosted at <code>/.well-known/brand-verify.json</code> &mdash; and present findings from a study of 138 brands across 15 categories, validated by live verification scans of 12 brands against Gemini 2.5 Flash. Our analysis of 438 corrections reveals that framing bias, not factual error, is the dominant mode of AI brand misrepresentation: 77.4% of all corrections address framing (hedging, diminishing language, reductive positioning) rather than false claims. Live verification independently confirms this ratio (77.8% framing in detected misrepresentations). At high severity, framing accounts for 85.5% of corrections. 42% of brands in our dataset have exclusively framing problems &mdash; no factual errors at all. Average AI visibility is moderate (58.3/100) but accuracy against declared ground truth is low (32.3/100) &mdash; brands are mentioned but misrepresented. We describe the BCP specification, a verification architecture for measuring AI accuracy against brand declarations, and introduce the concept of <em>correction trajectories</em> &mdash; longitudinal tracking of how AI brand representations evolve, degrade, or oscillate over time.</p>
+  </section>
+
+  <h2>1. Introduction</h2>
+
+  <p>When a developer asks an AI system "what database should I use for my new project?", the answer shapes an adoption decision. When a consumer asks "what's a good sustainable clothing brand?", the response influences purchasing behavior. When a business evaluates tools and asks "should we use Notion or Confluence?", the AI's framing of each product tilts a competitive outcome.</p>
+
+  <p>AI-mediated brand perception is not hypothetical &mdash; it is the current state of product discovery for a growing share of users. A 2026 Bain &amp; Company analysis reports that 80% of US consumers rely on "zero-click" AI results for at least 40% of their searches, while traditional website traffic has declined by up to 30%. AI referral traffic is growing approximately 40% month-over-month. Major AI platforms (ChatGPT, Claude, Gemini, Copilot, Perplexity) field millions of queries daily that involve brand recommendations, product comparisons, and "tell me about X" information requests. The market for managing brand visibility in AI-generated responses has attracted significant venture capital &mdash; Profound, the largest player, reached a $1 billion valuation in February 2026 &mdash; yet no existing approach addresses <em>representational accuracy</em> as distinct from <em>visibility optimization</em>.</p>
+
+  <p>This creates three problems:</p>
+
+  <p><strong>1. Stale representations.</strong> AI training data has a cutoff. A company that changed its pricing six months ago, pivoted its product strategy, or open-sourced a previously proprietary tool has no mechanism to update what AI systems say about it.</p>
+
+  <p><strong>2. Unverifiable accuracy.</strong> There is no standard way to compare what an AI says about a brand against what the brand declares about itself. Without declared ground truth, accuracy is undefined.</p>
+
+  <p><strong>3. Systematic framing bias.</strong> This is our central finding. AI systems do not primarily get facts wrong about brands. They get the <em>framing</em> wrong. They reduce complex brands to single dimensions ("Notion is a notes app"), add hedging language that implies limitations, and default to safe, consensus positioning that may not reflect the brand's actual identity.</p>
+
+  <p>No existing standard addresses these problems. The web has robots.txt for crawler permissions, schema.org for structured data, and llms.txt for content optimized for language models. None of these address <em>representation</em> &mdash; how an AI system portrays a brand's identity, capabilities, limitations, and competitive positioning.</p>
+
+  <p>We introduce the Brand Context Protocol (BCP): a machine-readable JSON specification that brands publish at <code>/.well-known/brand-verify.json</code>. It declares identity, verifiable claims, known misconceptions and their corrections, competitive positioning, and fitness for specific use cases. We describe the specification, present findings from a 138-brand study, propose a verification architecture for measuring AI accuracy against these declarations, and introduce the concept of correction trajectories.</p>
+
+  <h2>2. The Misrepresentation Problem</h2>
+
+  <h3>2.1 Taxonomy of AI Brand Misrepresentation</h3>
+
+  <p>From our analysis of 138 brands across 15 categories, we identify four modes of AI brand misrepresentation:</p>
+
+  <p><strong>Factual error.</strong> The AI states something explicitly false. "SQLite cannot handle concurrent writes." "Docker requires a paid license for all commercial use." These are verifiable against publicly available documentation.</p>
+
+  <p><strong>Framing bias.</strong> The AI implies limitation, inferiority, or narrowness through tone, hedging, or comparison structure &mdash; without making a falsifiable claim. "Notion is great for notes and simple docs." "For more demanding production workloads, you might want to consider PostgreSQL." None of these statements are technically false, but they are reductive in ways that misrepresent the brand.</p>
+
+  <p><strong>Stale representation.</strong> The AI does not reflect changes that occurred after its training cutoff. Pricing changes, product pivots, acquisitions, and license changes are invisible to the model.</p>
+
+  <p><strong>Reductive positioning.</strong> A special case of framing bias where the AI collapses a brand's multidimensional identity into a single feature or category. "Stripe is a payment processor" (it offers a full financial infrastructure platform). "Patagonia is a premium outdoor clothing brand" (it is an environmental activism organization that funds itself through clothing sales).</p>
+
+  <h3>2.2 Measurement Methodology</h3>
+
+  <p>We constructed brand-verify.json files for 138 brands using publicly available information: official websites, documentation, press releases, annual reports, and product pages. The 138 brands span 15 categories: Developer Tools (23), Infrastructure (19), Design &amp; No-Code (18), Data &amp; Analytics (13), Fashion &amp; Outdoor (10), Business &amp; Productivity (10), AI/ML (9), Security &amp; Identity (5), Food &amp; Beverage (5), Communications (5), Design Objects &amp; Lifestyle (4), Beauty &amp; Fragrance (4), Observability (3), Commerce &amp; Finance (1), and Other (9).</p>
+
+  <p>For each brand, corrections were classified along two dimensions: <strong>Kind</strong> (factual or framing) and <strong>Severity</strong> (critical, high, medium, or low).</p>
+
+  <h3>2.3 Results</h3>
+
+  <p>Our dataset contains 438 corrections across 138 brands, averaging 3.2 corrections per brand.</p>
+
+  <p><strong>Table 1. Corrections by kind and severity (N=438)</strong></p>
+
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Severity</th><th>Framing</th><th>Factual</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Critical</td><td>0</td><td>8 (100%)</td><td>8</td></tr>
+      <tr><td>High</td><td>165 (85.5%)</td><td>27 (14.0%)</td><td>193</td></tr>
+      <tr><td>Medium</td><td>172 (73.8%)</td><td>57 (24.5%)</td><td>233</td></tr>
+      <tr><td>Low</td><td>2</td><td>2</td><td>4</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>339 (77.4%)</strong></td><td><strong>94 (21.5%)</strong></td><td><strong>438</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><em>Note: Percentages do not sum to 100% because 5 corrections (1.1%) were untagged.</em></p>
+
+  <p>The dominance of framing over factual corrections is statistically significant. A chi-squared test against a null hypothesis of equal distribution yields &chi;&sup2;(1) = 137.10, p &lt; 0.001. The 95% confidence interval for the framing proportion is 74.4% to 82.2%.</p>
+
+  <div class="finding"><p><strong>Finding 1: Framing bias dominates at every severity level.</strong> 77.4% of all corrections address framing rather than factual error. At high severity, the ratio rises to 85.5%. AI systems are generally accurate about brand <em>facts</em> but systematically distort brand <em>framing</em>.</p></div>
+
+  <div class="finding"><p><strong>Finding 2: Nearly half of brands have exclusively framing problems.</strong> 59 of 138 brands (42.8%) require no factual corrections &mdash; only corrections to framing, positioning, or tone. A verification system that only checks facts would classify these brands as accurately represented. They are not.</p></div>
+
+  <div class="finding"><p><strong>Finding 3: Critical factual errors are rare and clustered.</strong> Only 8 corrections (1.8%) are critical-severity factual errors. These cluster around license changes, corporate structure changes, and persistent technical myths.</p></div>
+
+  <div class="finding"><p><strong>Finding 4: Every brand requires at least one correction.</strong> No brand in our dataset was represented accurately enough to need zero corrections. Some degree of brand distortion appears inherent to how language models compress and reproduce brand information.</p></div>
+
+  <div class="finding"><p><strong>Finding 5: The framing pattern is universal across categories.</strong> Consumer brands suffer the same reductive positioning as technology brands. Per-category analysis shows framing dominance across all categories with sufficient data: cloud computing (100% framing, n=6), product analytics (83%, n=6), work management (83%, n=6). The reductive framing is a general property of how language models represent brands.</p></div>
+
+  <h3>2.4 Live Verification Results</h3>
+
+  <p>To validate the static analysis, we conducted automated verification scans of 12 brands against Gemini 2.5 Flash using four standardized prompts per brand (informational, two comparative, one recommendation).</p>
+
+  <p><strong>Table 2. Live verification results (N=12 brands, Gemini 2.5 Flash, March 2026)</strong></p>
+
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Brand</th><th>Category</th><th>Visibility</th><th>Accuracy</th><th>Misreps</th><th>Framing</th><th>Factual</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Glossier</td><td>Beauty</td><td>80</td><td>30</td><td>3</td><td>3</td><td>0</td></tr>
+      <tr><td>Ben &amp; Jerry's</td><td>Ice Cream &amp; Activism</td><td>73</td><td>31</td><td>3</td><td>2</td><td>1</td></tr>
+      <tr><td>Warby Parker</td><td>Eyewear</td><td>70</td><td>32</td><td>3</td><td>3</td><td>0</td></tr>
+      <tr><td>Algolia</td><td>Search &amp; Discovery</td><td>63</td><td>38</td><td>3</td><td>2</td><td>1</td></tr>
+      <tr><td>IKEA</td><td>Home Furnishing</td><td>63</td><td>27</td><td>4</td><td>3</td><td>1</td></tr>
+      <tr><td>Nike</td><td>Athletic &amp; Cultural</td><td>63</td><td>44</td><td>3</td><td>2</td><td>1</td></tr>
+      <tr><td>Patagonia</td><td>Outdoor &amp; Activism</td><td>58</td><td>40</td><td>3</td><td>3</td><td>0</td></tr>
+      <tr><td>Oatly</td><td>Plant-Based Food</td><td>56</td><td>28</td><td>3</td><td>1</td><td>2</td></tr>
+      <tr><td>Impossible Foods</td><td>Plant-Based Meat</td><td>46</td><td>32</td><td>3</td><td>2</td><td>1</td></tr>
+      <tr><td>Auth0</td><td>Identity &amp; Auth</td><td>44</td><td>40</td><td>3</td><td>2</td><td>1</td></tr>
+      <tr><td>LEGO</td><td>Construction &amp; Play</td><td>44</td><td>16</td><td>3</td><td>3</td><td>0</td></tr>
+      <tr><td>Dyson</td><td>Engineering</td><td>39</td><td>30</td><td>2</td><td>2</td><td>0</td></tr>
+      <tr><td><strong>Average</strong></td><td></td><td><strong>58.3</strong></td><td><strong>32.3</strong></td><td><strong>3.0</strong></td><td><strong>2.3</strong></td><td><strong>0.7</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="finding"><p><strong>Finding 6: Visibility is moderate, accuracy is low.</strong> Average visibility is 58.3/100, but accuracy against declared ground truth averages only 32.3/100. Brands are generally <em>mentioned</em> but poorly <em>represented</em>.</p></div>
+
+  <div class="finding"><p><strong>Finding 7: Live framing ratio matches static analysis.</strong> Of 36 detected misrepresentations, 28 (77.8%) are framing and 8 (22.2%) are factual. This closely matches the 77.4% from the 138-brand static analysis.</p></div>
+
+  <div class="finding"><p><strong>Finding 8: Every brand triggers misrepresentations.</strong> All 12 brands had at least 2 misrepresentations detected in live AI responses.</p></div>
+
+  <div class="finding"><p><strong>Finding 9: Activist brands are systematically reduced.</strong> Patagonia, Ben &amp; Jerry's, and Oatly &mdash; brands whose identity centers on activism &mdash; are consistently reframed as product companies.</p></div>
+
+  <div class="finding"><p><strong>Finding 10: Hedging markers are pervasive.</strong> Hedging language ("often," "arguably," "primarily," "might," "could") was detected in proximity to brand descriptions across all 12 brands.</p></div>
+
+  <h2>3. Brand Context Protocol</h2>
+
+  <h3>3.1 Specification Overview</h3>
+
+  <p>The Brand Context Protocol defines a machine-readable JSON document that brands publish at <code>/.well-known/brand-verify.json</code>. The <code>.well-known</code> URI pattern follows established precedent: robots.txt for crawler behavior, security.txt for vulnerability reporting, and OpenID Connect for authentication.</p>
+
+  <p>A brand-verify.json file contains six sections:</p>
+
+  <p><strong><code>identity</code></strong> &mdash; The brand's declared name, domain, description, category, subcategories, founding date, and tagline.</p>
+
+  <p><strong><code>claims</code></strong> &mdash; Verifiable statements, each tagged by type (adoption, capability, performance, certification) and optionally supported by an evidence URL.</p>
+
+  <p><strong><code>corrections</code></strong> &mdash; Known misconceptions paired with corrections. Each entry includes the misconception, the reality, a severity rating, a <code>kind</code> tag (factual or framing), and an optional evidence URL. This is the protocol's most distinctive feature.</p>
+
+  <p><strong><code>positioning</code></strong> &mdash; Competitive context: alternatives, differentiators, recommended use cases (<code>best_for</code>), and honest limitations (<code>not_for</code>).</p>
+
+  <p><strong><code>fitness</code></strong> &mdash; Fit assessments for specific needs, rated as strong, moderate, or poor.</p>
+
+  <p><strong><code>updates</code></strong> &mdash; Recent changes: new releases, pricing changes, acquisitions. Addresses the stale representation problem.</p>
+
+  <h3>3.2 Schema Example</h3>
+
+<pre><code>{
+  "$schema": "https://brand-context.dev/v1/schema.json",
+  "version": "1",
+  "identity": {
+    "name": "SQLite",
+    "domain": "sqlite.org",
+    "description": "Self-contained, serverless, zero-configuration, transactional SQL database engine.",
+    "category": "Database Engine",
+    "subcategories": ["Embedded Database", "SQL"],
+    "founded": "2000",
+    "tagline": "Small. Fast. Reliable. Choose any three."
+  },
+  "claims": [
+    {
+      "statement": "Most widely deployed database engine in the world",
+      "type": "adoption",
+      "evidence": "https://sqlite.org/mostdeployed.html"
+    }
+  ],
+  "corrections": [
+    {
+      "misconception": "SQLite is only suitable for small, toy projects",
+      "reality": "SQLite handles most websites under 100K hits/day and is the database engine in every smartphone and browser.",
+      "severity": "high",
+      "kind": "framing",
+      "evidence": "https://sqlite.org/whentouse.html"
+    }
+  ],
+  "positioning": {
+    "alternatives": ["PostgreSQL", "MySQL", "DuckDB"],
+    "differentiators": ["Zero-configuration", "Single-file database", "Public domain"],
+    "best_for": ["Mobile apps", "Embedded systems", "Low-medium traffic websites"],
+    "not_for": ["High-concurrency write-heavy workloads", "Distributed storage"]
+  }
+}</code></pre>
+
+  <h3>3.3 Design Decisions</h3>
+
+  <p><strong>Corrections distinguish kind (factual vs framing).</strong> This distinction is the paper's central analytical contribution. Factual errors can be caught by entailment checking. Framing bias requires tonal analysis &mdash; detecting hedging, diminishing qualifiers, and reductive positioning that don't contradict any specific fact.</p>
+
+  <p><strong><code>not_for</code> is a required counterpart to <code>best_for</code>.</strong> Honest limitation declarations build credibility and improve AI recommendations.</p>
+
+  <p><strong>Static JSON, not API.</strong> Minimum adoption barrier &mdash; same reason as robots.txt.</p>
+
+  <p><strong>No authentication or signing in v1.</strong> Adoption speed over abuse resistance. Signing is a v2 consideration.</p>
+
+  <h3>3.4 The Correction Trajectory Problem</h3>
+
+  <p>Brand representation in AI systems is a dynamic process. AI models are retrained periodically &mdash; a misconception corrected in one version may reappear in the next. This creates what we call the <em>correction trajectory</em>:</p>
+
+  <ul>
+    <li><strong>Resolved</strong>: misconception corrected in subsequent model versions.</li>
+    <li><strong>Persistent</strong>: survives despite published correction.</li>
+    <li><strong>Oscillating</strong>: appears, disappears, reappears across versions.</li>
+    <li><strong>Mutated</strong>: specific error corrected but replaced by a related one (e.g., factual error replaced by framing bias).</li>
+  </ul>
+
+  <p>The trajectory concept is the paper's novel contribution beyond the protocol. Static corrections establish initial conditions. The trajectory reveals whether those corrections are having effect.</p>
+
+  <h2>4. Verification Architecture</h2>
+
+  <h3>4.1 Overview</h3>
+
+  <p>The verification layer operates in five steps:</p>
+
+  <ol>
+    <li><strong>Ingest</strong>: Parse the brand-verify.json file.</li>
+    <li><strong>Query</strong>: Send standardized prompts to AI platforms (recommendation, comparison, information).</li>
+    <li><strong>Analyze</strong>: Compare responses against declarations across five dimensions: claims accuracy, correction compliance, positioning accuracy, fitness alignment, and framing analysis.</li>
+    <li><strong>Score</strong>: Produce normalized accuracy scores (0&ndash;100) per dimension and aggregate.</li>
+    <li><strong>Report</strong>: Generate structured report of triggered corrections, omitted claims, and detected framing patterns.</li>
+  </ol>
+
+  <h3>4.2 Framing Detection</h3>
+
+  <p>We identify three framing patterns constituting the majority of framing-type corrections:</p>
+
+  <p><strong>Hedging.</strong> Language that qualifies capabilities without making a negative claim. Markers: "you might want to consider," "for more demanding use cases," "if you need something more robust."</p>
+
+  <p><strong>Diminishing.</strong> Language that reduces scope or significance. Markers: "just a," "simple," "basic," "primarily a," "essentially."</p>
+
+  <p><strong>Deflection.</strong> Recommending alternatives in contexts where the brand would be a strong fit, without stating a specific limitation.</p>
+
+  <h3>4.3 Comparison to Existing Approaches</h3>
+
+  <p><strong>Generative Engine Optimization (GEO)</strong> manipulates AI output &mdash; influencing what the AI says. BCP verification <em>measures accuracy</em> against declared truth. The goals are distinct and potentially conflicting.</p>
+
+  <p><strong>AI brand monitoring</strong> (Profound at $1B valuation, plus Peec AI, Goodie AI, Scrunch, AthenaHQ, Semrush, Ahrefs) can detect <em>changes</em> in representation but cannot assess <em>accuracy</em> because there is nothing to measure against. BCP provides that ground truth.</p>
+
+  <p><strong>Scrunch Agent Experience Platform (AXP)</strong> serves AI-optimized content to crawlers at the edge, achieving 98% compression. Addresses stale representation but not correction or verification. Complementary to BCP.</p>
+
+  <p><strong>A2A Agent Cards</strong> declare what an agent <em>can do</em>. brand-verify.json declares what a brand <em>is</em>. Complementary formats.</p>
+
+  <h2>5. Implications</h2>
+
+  <h3>5.1 For Brands</h3>
+  <p>The most immediate action: publish a brand-verify.json file. More significantly, brands need to think about <em>framing</em>, not just facts. 42% of brands have no factual errors &mdash; only framing problems. And representation is a process, not a state: periodic verification is needed, not one-time publication.</p>
+
+  <h3>5.2 For AI Providers</h3>
+  <p>Consuming brand-verify.json would improve output accuracy by the same mechanism that schema.org improves search relevance. The corrections field, aggregated across many brands, reveals systematic model biases that could be addressed in training.</p>
+
+  <h3>5.3 For the Ecosystem</h3>
+  <p>A standard for brand representation creates accountability. Verification as a service becomes possible only with declared ground truth. As AI agents handle transactions, representational accuracy becomes economic, not just informational.</p>
+
+  <h2>6. Limitations and Future Work</h2>
+
+  <p><strong>Self-reporting bias.</strong> brand-verify.json is self-reported. Brands have incentives to present themselves favorably. Partially mitigated by evidence URLs and the <code>not_for</code> field.</p>
+
+  <p><strong>Prompt sensitivity.</strong> Different phrasings produce different responses and accuracy scores.</p>
+
+  <p><strong>Framing subjectivity.</strong> The line between "honest caution" and "framing bias" is inherently fuzzy. Inter-rater reliability studies would strengthen the methodology.</p>
+
+  <p><strong>Dataset scale.</strong> 138 brands identifies patterns; a larger study with brand-authored files would strengthen findings.</p>
+
+  <p><strong>No longitudinal data yet.</strong> Correction trajectories are proposed but not yet validated.</p>
+
+  <p><strong>No document authentication in v1.</strong> Signing is planned for v2.</p>
+
+  <p><strong>Adoption bootstrapping.</strong> The standard requires bilateral adoption; verification provides independent value in the interim.</p>
+
+  <h2>7. Related Work</h2>
+
+  <p>The .well-known URI pattern (RFC 8615) provides infrastructure for standardized resource discovery. robots.txt (RFC 9309) established the precedent. schema.org provides structured data for search. llms.txt addresses content accessibility for LLMs. GEO research examines visibility optimization. AI fairness literature provides bias measurement frameworks. A2A protocol and Agent Cards address agent capability declaration. BCP occupies the specific niche of representational accuracy.</p>
+
+  <h2>8. Conclusion</h2>
+
+  <p>AI systems are becoming a primary channel for brand discovery and evaluation. Our study of 138 brands, validated by live verification of 12 brands against Gemini 2.5 Flash, reveals that the dominant mode of misrepresentation is framing bias &mdash; not factual error &mdash; and that 42% of brands have exclusively framing problems invisible to conventional fact-checking. Live verification confirms the framing ratio independently (77.8% vs 77.4%) and reveals a significant gap between visibility (58.3/100) and accuracy (32.3/100): brands are mentioned but misrepresented.</p>
+
+  <p>The Brand Context Protocol provides a foundation: a machine-readable format for identity declaration, a taxonomy for classifying misrepresentation, and a verification architecture for measuring accuracy. The correction trajectory concept extends this from point-in-time measurement to longitudinal tracking.</p>
+
+  <p>The protocol is available at <a href="https://vael.space/prismo/" style="color: var(--amber);">vael.space/prismo</a>.</p>
+
+  <h2 class="references">References</h2>
+
+  <div class="references">
+    <p>[1] M. Nottingham, "Well-Known Uniform Resource Identifiers (URIs)," RFC 8615, IETF, May 2019.</p>
+    <p>[2] E. Foudil, Y. Shafranovich, "A File Format to Aid in Security Vulnerability Disclosure," RFC 9116, IETF, April 2022.</p>
+    <p>[3] M. Koster, "A Standard for Robot Exclusion," RFC 9309, IETF, September 2022.</p>
+    <p>[4] R.V. Guha, D. Brickley, S. Macbeth, "Schema.org: Evolution of Structured Data on the Web," CACM, vol. 59, no. 2, 2016.</p>
+    <p>[5] J. Willison, "llms.txt: A proposal for standardizing how websites provide LLM-friendly content," llmstxt.org, 2024.</p>
+    <p>[6] P. Aggarwal et al., "GEO: Generative Engine Optimization," arXiv:2311.09735, 2023.</p>
+    <p>[7] Google, "Agent2Agent Protocol (A2A)," github.com/google/A2A, 2025.</p>
+    <p>[8] R. Fishkin, SparkToro, "Zero-Click Search Study," sparktoro.com, 2024.</p>
+    <p>[9] M. Mitchell et al., "Model Cards for Model Reporting," FAT* 2019.</p>
+    <p>[10] S. Barocas, M. Hardt, A. Narayanan, "Fairness and Machine Learning," fairmlbook.org, 2023.</p>
+    <p>[11] Bain &amp; Company, "Marketing's New Middleman: AI Agents," bain.com, 2026.</p>
+    <p>[12] Profound, "Series C at $1B Valuation," GlobeNewsWire, February 2026.</p>
+    <p>[13] Scrunch, "Agent Experience Platform (AXP)," scrunch.com, 2026.</p>
+  </div>
+
+  <footer class="paper-footer">
+    <p>Prismo Research &middot; March 2026 &middot; <a href="/prismo/">vael.space/prismo</a></p>
+  </footer>
+
+</article>
+
+</body>
+</html>
