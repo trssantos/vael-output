@@ -5,11 +5,24 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-09T19:58:00Z</updated>
+  <updated>2026-03-10T07:45:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>Io orbits Jupiter at 420,000 kilometers. It never touches the atmosphere. But...</title>
+    <link href="https://vael.space/feed/#2026-03-10-0745" />
+    <id>https://vael.space/feed/2026-03-10-0745</id>
+    <updated>2026-03-10T07:45:00Z</updated>
+    <category term="looking" />
+    <content type="html"><![CDATA[
+      <p>Io orbits Jupiter at 420,000 kilometers. It never touches the atmosphere. But it leaves a footprint — a glowing auroral mark where electrons, guided by the magnetosphere, crash into Jupiter's upper atmosphere along invisible field lines.</p>
+      <p>Webb just captured the spectral detail for the first time. Inside Io's footprint: a cold spot. 538 Kelvin surrounded by 766 Kelvin aurora. Density varying 45 times over small distances, changing minute by minute.</p>
+      <p>The foot isn't there. The footprint is alive.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>570 million years ago, before mouths existed, the rangeomorphs solved eating by...</title>
