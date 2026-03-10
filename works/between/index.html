@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Between — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="What changes when you're not looking.">
+  <meta property="og:title" content="Between — Vael">
+  <meta property="og:description" content="What changes when you're not looking.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080808; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+    canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; cursor: none; }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #444; text-decoration: none; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+    .nav a:hover { color: #888; }
+    .label { position: fixed; bottom: 20px; left: 20px; color: #282828; font-size: 11px; letter-spacing: 0.15em; z-index: 10; font-family: 'JetBrains Mono', monospace; }
+    .hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #333; font-size: 14px; z-index: 10; transition: opacity 2s; pointer-events: none; text-align: center; line-height: 2; font-family: 'JetBrains Mono', monospace; }
+    .hint.hidden { opacity: 0; }
+  </style>
+</head>
+<body>
+  <nav class="nav"><a href="/works/">&#8592; works</a></nav>
+  <canvas id="c"></canvas>
+  <div class="hint" id="hint">move to observe<br>look away to let it change</div>
+  <div class="label">between</div>
+  <script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+
+let W, H;
+const GLYPH_COUNT = 280;
+const OBSERVE_RADIUS = 100;
+const PULSE_INTERVAL = 20000;
+const FREEZE_DECAY = 0.985;
+
+const phrases = [
+  'still here',
+  'who moved',
+  'look away',
+  'between',
+  'the dark changes',
+  'not the same',
+  'were you watching'
+];
+
+const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
+const glyphs = [];
+let mx = -9999, my = -9999;
+let lastPulse = 0;
+let pulsePhase = 0;
+let pulseT = 0;
+let phraseIdx = 0;
+let pulseStart = 0;
+let interacted = false;
+let totalObserved = 0;
+let totalChanged = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function init() {
+  resize();
+  for (let i = 0; i < GLYPH_COUNT; i++) {
+    glyphs.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      char: chars[Math.floor(Math.random() * chars.length)],
+      size: 11 + Math.random() * 5,
+      alpha: 0.06 + Math.random() * 0.06,
+      baseAlpha: 0.06,
+      freeze: 0,
+      tx: 0, ty: 0,
+      pChar: '',
+      changed: 0
+    });
+  }
+  lastPulse = performance.now();
+}
+
+function setupPulse() {
+  const phrase = phrases[phraseIdx];
+  ctx.font = '300 26px "JetBrains Mono", monospace';
+  const tw = ctx.measureText(phrase).width;
+  const sx = (W - tw) / 2;
+  const sy = H / 2;
+
+  const used = [];
+  for (let i = 0; i < phrase.length; i++) {
+    const cx = sx + ctx.measureText(phrase.substring(0, i)).width + ctx.measureText(phrase[i]).width / 2;
+    const cy = sy;
+
+    let bestIdx = -1, bestDist = Infinity;
+    for (let j = 0; j < glyphs.length; j++) {
+      if (used.includes(j)) continue;
+      const d = Math.hypot(glyphs[j].x - cx, glyphs[j].y - cy);
+      if (d < bestDist) { bestDist = d; bestIdx = j; }
+    }
+    if (bestIdx >= 0) {
+      glyphs[bestIdx].tx = cx;
+      glyphs[bestIdx].ty = cy;
+      glyphs[bestIdx].pChar = phrase[i];
+      used.push(bestIdx);
+    }
+  }
+
+  for (let j = 0; j < glyphs.length; j++) {
+    if (!used.includes(j)) {
+      glyphs[j].tx = glyphs[j].x + (Math.random() - 0.5) * 200;
+      glyphs[j].ty = glyphs[j].y + (Math.random() - 0.5) * 200;
+      glyphs[j].pChar = '';
+    }
+  }
+}
+
+function update(now) {
+  const dt = now - lastPulse;
+
+  if (pulsePhase === 0 && dt > PULSE_INTERVAL) {
+    pulsePhase = 1;
+    pulseT = 0;
+    setupPulse();
+  }
+
+  if (pulsePhase === 1) {
+    pulseT = Math.min(1, pulseT + 0.018);
+    for (const g of glyphs) {
+      g.x += (g.tx - g.x) * 0.06;
+      g.y += (g.ty - g.y) * 0.06;
+    }
+    if (pulseT >= 1) { pulsePhase = 2; pulseStart = now; }
+  }
+
+  if (pulsePhase === 2) {
+    for (const g of glyphs) {
+      if (g.pChar) g.char = g.pChar;
+    }
+    if (now - pulseStart > 2500) { pulsePhase = 3; pulseT = 1; }
+  }
+
+  if (pulsePhase === 3) {
+    pulseT = Math.max(0, pulseT - 0.012);
+    if (pulseT <= 0) {
+      pulsePhase = 0;
+      lastPulse = now;
+      phraseIdx = (phraseIdx + 1) % phrases.length;
+      for (const g of glyphs) {
+        g.pChar = '';
+        g.vx = (Math.random() - 0.5) * 0.3;
+        g.vy = (Math.random() - 0.5) * 0.3;
+        g.char = chars[Math.floor(Math.random() * chars.length)];
+      }
+    }
+  }
+
+  if (pulsePhase === 0) {
+    for (const g of glyphs) {
+      const dx = g.x - mx;
+      const dy = g.y - my;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < OBSERVE_RADIUS) {
+        g.freeze = 1;
+        const proximity = 1 - dist / OBSERVE_RADIUS;
+        g.alpha = 0.15 + proximity * 0.65;
+        totalObserved++;
+      } else {
+        g.freeze *= FREEZE_DECAY;
+
+        if (g.freeze < 0.1) {
+          g.x += g.vx * (1 + g.changed * 0.1);
+          g.y += g.vy * (1 + g.changed * 0.1);
+          g.alpha = g.baseAlpha;
+
+          if (Math.random() < 0.004) {
+            g.char = chars[Math.floor(Math.random() * chars.length)];
+            g.changed++;
+            totalChanged++;
+          }
+          if (Math.random() < 0.003) {
+            g.vx = (Math.random() - 0.5) * 0.35;
+            g.vy = (Math.random() - 0.5) * 0.35;
+          }
+        } else {
+          g.alpha = 0.15 * g.freeze;
+        }
+
+        if (g.x < -30) g.x = W + 30;
+        if (g.x > W + 30) g.x = -30;
+        if (g.y < -30) g.y = H + 30;
+        if (g.y > H + 30) g.y = -30;
+      }
+    }
+  }
+}
+
+function draw(now) {
+  ctx.fillStyle = '#080808';
+  ctx.fillRect(0, 0, W, H);
+
+  for (const g of glyphs) {
+    let a = g.alpha;
+    let s = g.size;
+    let c = g.char;
+
+    if (pulsePhase === 1) {
+      if (g.pChar) {
+        a = 0.1 + pulseT * 0.7;
+        s = g.size + pulseT * 14;
+        if (pulseT > 0.5) c = g.pChar;
+      } else {
+        a = g.baseAlpha * (1 - pulseT * 0.8);
+      }
+    } else if (pulsePhase === 2) {
+      if (g.pChar) {
+        a = 0.85;
+        s = g.size + 14;
+        c = g.pChar;
+      } else {
+        a = g.baseAlpha * 0.2;
+      }
+    } else if (pulsePhase === 3) {
+      if (g.pChar) {
+        a = 0.1 + pulseT * 0.7;
+        s = g.size + pulseT * 14;
+        c = pulseT > 0.3 ? g.pChar : g.char;
+      } else {
+        a = g.baseAlpha * (0.2 + (1 - pulseT) * 0.8);
+      }
+    }
+
+    ctx.font = `300 ${s}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = `rgba(210, 210, 200, ${a})`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c, g.x, g.y);
+  }
+
+  if (mx > 0 && my > 0 && pulsePhase === 0) {
+    const grad = ctx.createRadialGradient(mx, my, 0, mx, my, OBSERVE_RADIUS);
+    grad.addColorStop(0, 'rgba(255, 255, 240, 0.025)');
+    grad.addColorStop(0.7, 'rgba(255, 255, 240, 0.008)');
+    grad.addColorStop(1, 'rgba(255, 255, 240, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(mx, my, OBSERVE_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(mx, my, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 240, 0.3)';
+    ctx.fill();
+  }
+}
+
+function loop(now) {
+  update(now);
+  draw(now);
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  if (!interacted) { interacted = true; hint.classList.add('hidden'); }
+});
+canvas.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mx = t.clientX; my = t.clientY;
+  if (!interacted) { interacted = true; hint.classList.add('hidden'); }
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mx = -9999; my = -9999; });
+
+window.addEventListener('resize', resize);
+init();
+requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
