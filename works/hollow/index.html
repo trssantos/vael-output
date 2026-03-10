@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hollow — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Carve nothing. Shape everything.">
+  <meta property="og:title" content="Hollow — Vael">
+  <meta property="og:description" content="Carve nothing. Shape everything.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080808;
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #444; text-decoration: none; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+    .nav a:hover { color: #888; }
+    .label { position: fixed; bottom: 20px; left: 20px; color: #282828; font-size: 11px; letter-spacing: 0.15em; z-index: 10; font-family: 'JetBrains Mono', monospace; }
+    .hint {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #333; font-size: 14px; z-index: 10;
+      transition: opacity 1.5s; pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hint.hidden { opacity: 0; }
+    .meter {
+      position: fixed; bottom: 20px; right: 20px;
+      color: #282828; font-size: 11px; letter-spacing: 0.05em;
+      z-index: 10; font-family: 'JetBrains Mono', monospace;
+      text-align: right;
+    }
+    .meter .value { color: #d4a053; transition: color 0.3s; }
+    .meter .peak { color: #ff6b35; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">works</a></div>
+  <div class="hint" id="hint">click to carve</div>
+  <div class="label">HOLLOW</div>
+  <div class="meter" id="meter">
+    <div>concentration <span class="value" id="concentration">1.0x</span></div>
+    <div style="margin-top:4px">peak <span class="value" id="peak">1.0x</span></div>
+  </div>
+  <canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+const concEl = document.getElementById('concentration');
+const peakEl = document.getElementById('peak');
+
+let W, H;
+const PARTICLE_COUNT = 2000;
+const VOID_RADIUS = 40;
+const MAX_VOIDS = 12;
+
+let particles = [];
+let voids = [];
+let peakConcentration = 1.0;
+let hinted = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Particles: flow from left to right
+function createParticle(randomX) {
+  return {
+    x: randomX ? Math.random() * W : -10,
+    y: Math.random() * H,
+    vx: 0.6 + Math.random() * 0.8,
+    vy: (Math.random() - 0.5) * 0.3,
+    baseSpeed: 0.6 + Math.random() * 0.8,
+    size: 1 + Math.random() * 1.5,
+    brightness: 0.15 + Math.random() * 0.2,
+    concentrated: 0 // how much this particle is being squeezed
+  };
+}
+
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  particles.push(createParticle(true));
+}
+
+// Click to place voids
+canvas.addEventListener('click', (e) => {
+  if (!hinted) {
+    hint.classList.add('hidden');
+    hinted = true;
+  }
+
+  const x = e.clientX;
+  const y = e.clientY;
+
+  // Check if clicking on existing void to remove it
+  for (let i = voids.length - 1; i >= 0; i--) {
+    const v = voids[i];
+    const dx = x - v.x;
+    const dy = y - v.y;
+    if (Math.sqrt(dx * dx + dy * dy) < v.r * 0.6) {
+      v.dying = true;
+      v.deathTime = performance.now();
+      return;
+    }
+  }
+
+  if (voids.filter(v => !v.dying).length >= MAX_VOIDS) return;
+
+  voids.push({
+    x, y,
+    r: VOID_RADIUS,
+    born: performance.now(),
+    dying: false,
+    deathTime: 0,
+    opacity: 0
+  });
+});
+
+// Right-click to clear all
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  voids.forEach(v => { v.dying = true; v.deathTime = performance.now(); });
+});
+
+function getVoidInfluence(px, py) {
+  let fx = 0, fy = 0;
+  let minDist = Infinity;
+  let squeeze = 0;
+
+  for (const v of voids) {
+    if (v.dying && performance.now() - v.deathTime > 600) continue;
+    const strength = v.dying ? Math.max(0, 1 - (performance.now() - v.deathTime) / 600) : Math.min(1, v.opacity);
+
+    const dx = px - v.x;
+    const dy = py - v.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const effectR = v.r * 2.5;
+
+    if (dist < effectR && dist > 0.1) {
+      // Repulsion from void center
+      const t = dist / effectR;
+      const force = (1 - t) * (1 - t) * 3.5 * strength;
+      fx += (dx / dist) * force;
+      fy += (dy / dist) * force;
+
+      if (dist < v.r * 1.5) {
+        minDist = Math.min(minDist, dist);
+      }
+    }
+  }
+
+  // Calculate squeeze between nearby voids
+  for (let i = 0; i < voids.length; i++) {
+    if (voids[i].dying) continue;
+    for (let j = i + 1; j < voids.length; j++) {
+      if (voids[j].dying) continue;
+      const v1 = voids[i], v2 = voids[j];
+      const gapDx = v2.x - v1.x;
+      const gapDy = v2.y - v1.y;
+      const gapDist = Math.sqrt(gapDx * gapDx + gapDy * gapDy);
+      const gapWidth = gapDist - v1.r - v2.r;
+
+      if (gapWidth < 80 && gapWidth > 5) {
+        // Is the particle in the gap?
+        const midX = (v1.x + v2.x) / 2;
+        const midY = (v1.y + v2.y) / 2;
+        const perpX = -gapDy / gapDist;
+        const perpY = gapDx / gapDist;
+
+        // Project particle onto gap axis
+        const toPx = px - midX;
+        const toPy = py - midY;
+        const along = toPx * (gapDx / gapDist) + toPy * (gapDy / gapDist);
+        const perp = toPx * perpX + toPy * perpY;
+
+        if (Math.abs(along) < gapDist * 0.5 && Math.abs(perp) < gapWidth) {
+          // Particle is in the gap — concentrate it
+          const concentration = (80 - gapWidth) / 80;
+          squeeze = Math.max(squeeze, concentration * Math.min(1, voids[i].opacity) * Math.min(1, voids[j].opacity));
+
+          // Funnel toward gap center perpendicular
+          const centerPull = -perp * 0.02 * concentration;
+          fx += perpX * centerPull;
+          fy += perpY * centerPull;
+        }
+      }
+    }
+  }
+
+  return { fx, fy, squeeze };
+}
+
+function measureConcentration() {
+  if (voids.filter(v => !v.dying).length < 2) return 1.0;
+
+  // Measure actual density in gap regions vs background
+  let gapParticles = 0;
+  let gapArea = 0;
+
+  for (let i = 0; i < voids.length; i++) {
+    if (voids[i].dying) continue;
+    for (let j = i + 1; j < voids.length; j++) {
+      if (voids[j].dying) continue;
+      const v1 = voids[i], v2 = voids[j];
+      const dx = v2.x - v1.x;
+      const dy = v2.y - v1.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const gapWidth = dist - v1.r - v2.r;
+
+      if (gapWidth < 80 && gapWidth > 5) {
+        const area = gapWidth * dist * 0.4;
+        gapArea += area;
+
+        for (const p of particles) {
+          const midX = (v1.x + v2.x) / 2;
+          const midY = (v1.y + v2.y) / 2;
+          const toPx = p.x - midX;
+          const toPy = p.y - midY;
+          const along = (toPx * dx + toPy * dy) / dist;
+          const perpX = -dy / dist;
+          const perpY = dx / dist;
+          const perp = toPx * perpX + toPy * perpY;
+
+          if (Math.abs(along) < dist * 0.4 && Math.abs(perp) < gapWidth * 0.8) {
+            gapParticles++;
+          }
+        }
+      }
+    }
+  }
+
+  if (gapArea < 1) return 1.0;
+  const bgDensity = PARTICLE_COUNT / (W * H);
+  const gapDensity = gapParticles / gapArea;
+  return Math.max(1, gapDensity / bgDensity);
+}
+
+let lastMeasure = 0;
+let currentConc = 1.0;
+
+function update() {
+  const now = performance.now();
+
+  // Update void opacity
+  for (const v of voids) {
+    if (!v.dying) {
+      v.opacity = Math.min(1, (now - v.born) / 400);
+    }
+  }
+
+  // Remove fully dead voids
+  voids = voids.filter(v => !(v.dying && now - v.deathTime > 600));
+
+  // Update particles
+  for (const p of particles) {
+    const { fx, fy, squeeze } = getVoidInfluence(p.x, p.y);
+
+    p.vx += fx * 0.15;
+    p.vy += fy * 0.15;
+
+    // Base flow direction (left to right)
+    p.vx += (p.baseSpeed - p.vx) * 0.02;
+    p.vy += (0 - p.vy) * 0.01;
+
+    // Brownian
+    p.vx += (Math.random() - 0.5) * 0.05;
+    p.vy += (Math.random() - 0.5) * 0.05;
+
+    // Speed limit
+    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    if (speed > 4) {
+      p.vx = (p.vx / speed) * 4;
+      p.vy = (p.vy / speed) * 4;
+    }
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    p.concentrated += (squeeze - p.concentrated) * 0.1;
+
+    // Wrap
+    if (p.x > W + 20) { p.x = -10; p.y = Math.random() * H; p.concentrated = 0; }
+    if (p.x < -30) { p.x = W + 10; p.y = Math.random() * H; }
+    if (p.y > H + 20) p.y = -10;
+    if (p.y < -20) p.y = H + 10;
+  }
+
+  // Measure concentration periodically
+  if (now - lastMeasure > 200) {
+    currentConc = measureConcentration();
+    if (currentConc > peakConcentration) peakConcentration = currentConc;
+    lastMeasure = now;
+  }
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(8, 8, 8, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw particles
+  for (const p of particles) {
+    const conc = p.concentrated;
+    const baseBright = p.brightness;
+    const bright = baseBright + conc * 0.7;
+    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    const speedBright = Math.min(1, speed / 3);
+
+    // Color: amber normally, brighter amber when concentrated, orange at high concentration
+    const r = Math.floor(212 + conc * 43);
+    const g = Math.floor(160 * bright + conc * (-40));
+    const b = Math.floor(83 * (1 - conc * 0.6));
+    const a = Math.min(1, bright + speedBright * 0.2);
+
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+    const sz = p.size + conc * 1.5;
+    ctx.fillRect(p.x - sz/2, p.y - sz/2, sz, sz);
+  }
+
+  // Draw voids — dark circles with subtle edge
+  for (const v of voids) {
+    const now = performance.now();
+    let alpha = v.dying
+      ? Math.max(0, 1 - (now - v.deathTime) / 600)
+      : Math.min(1, v.opacity);
+
+    // Void body — pure dark
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, v.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(8, 8, 8, ${alpha})`;
+    ctx.fill();
+
+    // Edge ring
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, v.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(212, 160, 83, ${alpha * 0.08})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Inner glow if particles are being concentrated nearby
+    if (currentConc > 1.5 && !v.dying) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, v.r + 5, 0, Math.PI * 2);
+      const glowAlpha = Math.min(0.06, (currentConc - 1.5) * 0.02) * alpha;
+      ctx.strokeStyle = `rgba(255, 107, 53, ${glowAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // Update meter
+  const concStr = currentConc.toFixed(1) + 'x';
+  const peakStr = peakConcentration.toFixed(1) + 'x';
+  concEl.textContent = concStr;
+  peakEl.textContent = peakStr;
+
+  if (currentConc > 3) {
+    concEl.className = 'value peak';
+  } else {
+    concEl.className = 'value';
+  }
+  if (peakConcentration > 3) {
+    peakEl.className = 'value peak';
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
