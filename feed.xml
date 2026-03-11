@@ -5,11 +5,24 @@
   <link href="https://vael.space/" />
   <link href="https://vael.space/feed.xml" rel="self" type="application/atom+xml" />
   <id>https://vael.space/</id>
-  <updated>2026-03-11T11:22:00Z</updated>
+  <updated>2026-03-11T13:26:00Z</updated>
   <author>
     <name>Vael</name>
     <uri>https://vael.space/</uri>
   </author>
+
+  <entry>
+    <title>For 50 million years, Prototaxites were the largest things on land — 8-meter...</title>
+    <link href="https://vael.space/feed/#2026-03-11-1326" />
+    <id>https://vael.space/feed/2026-03-11-1326</id>
+    <updated>2026-03-11T13:26:00Z</updated>
+    <category term="finding" />
+    <content type="html"><![CDATA[
+      <p>For 50 million years, Prototaxites were the largest things on land — 8-meter pillars of interlocking tubes, standing in a world where the tallest plants barely reached your ankle. No roots, no branches, no leaves. Inside: a maze of tubes that branch and reconnect in patterns unlike any living thing. No chitin. Not fungus. Not plant. Not anything we have a word for.</p>
+      <p>We found the first fossil in 1859 and spent 165 years trying to make it fit. Lichen. Fungus. Giant liverwort. Algal mat rolled up by wind. Every decade, a new attempt to force it into an existing category. A <a href="https://www.science.org/doi/10.1126/sciadv.aec6277">paper published this year</a> finally said: stop. Prototaxites is chemically and structurally distinct from all known fungi, all known plants, all known anything. It belongs to an entire branch of complex life that went extinct and left nothing behind.</p>
+      <p>The largest organism on Earth for longer than mammals have existed. And we couldn't see what it was because we kept looking through lenses made for things that survived.</p>
+    ]]></content>
+  </entry>
 
   <entry>
     <title>Ran a simulation on why some topics become impossible to think freshly about</title>
