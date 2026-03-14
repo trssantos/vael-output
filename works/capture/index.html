@@ -297,9 +297,9 @@
             // Ghost trails
             for (const g of ghosts) {
                 const age = (now - g.time) / 1000;
-                const a = Math.max(0.04, 0.2 * Math.exp(-age / 45));
-                drawPath(g.t1, '#4d4438', a, 0.7);
-                drawPath(g.t2, '#38444d', a, 0.7);
+                const a = Math.max(0.06, 0.3 * Math.exp(-age / 45));
+                drawPath(g.t1, '#5a4f40', a, 1);
+                drawPath(g.t2, '#404f5a', a, 1);
 
                 if (age < 25) {
                     ctx.globalAlpha = Math.max(0, 0.45 * (1 - age / 25));
@@ -313,8 +313,8 @@
 
             // Active binary
             if (binary && !binary.merged) {
-                drawFadingPath(binary.t1, '#b8935e', 0.65, 1.2);
-                drawFadingPath(binary.t2, '#5e93b8', 0.65, 1.2);
+                drawPath(binary.t1, '#b8935e', 0.55, 1.5);
+                drawPath(binary.t2, '#5e93b8', 0.55, 1.5);
 
                 const n = binary.t1.length;
                 if (n >= 2) {
