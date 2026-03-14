@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture — Vael</title>
+    <link rel="icon" href="/favicon.svg">
+    <meta name="description" content="Two objects that found each other through violence, not patience. The shape of the orbit is forensic evidence.">
+    <meta property="og:title" content="Capture — Vael">
+    <meta property="og:description" content="Two objects that found each other through violence, not patience.">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #080808;
+            color: #888;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            cursor: crosshair;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        canvas { display: block; }
+        .nav {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            font-size: 13px;
+            font-weight: 300;
+        }
+        .nav a { color: #555; text-decoration: none; }
+        .nav a:hover { color: #888; }
+        #label {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 12px;
+            font-weight: 300;
+            color: #333;
+            z-index: 10;
+            letter-spacing: 0.05em;
+        }
+        #info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 12px;
+            font-weight: 300;
+            color: #444;
+            text-align: right;
+            z-index: 10;
+        }
+        #hint {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 11px;
+            font-weight: 300;
+            color: #2a2a2a;
+            z-index: 10;
+            transition: opacity 3s;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav"><a href="/works/">← works</a></nav>
+    <div id="label">capture</div>
+    <div id="info"></div>
+    <div id="hint">click to disturb</div>
+    <canvas id="c"></canvas>
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        const infoEl = document.getElementById('info');
+        const hintEl = document.getElementById('hint');
+
+        let W, H;
+        function resize() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Physics
+        const GM = 1200;
+        const DRAG = 20;
+        const MERGE_R = 12;
+        const EPS2 = 4; // softening squared
+        const TRAIL_LEN = 1500;
+        const GHOST_TRAIL = 800;
+        const MAX_GHOSTS = 10;
+        const DT = 0.25;
+
+        let ghosts = [];
+        let mergeCount = 0;
+        let binary = null;
+        let hintShown = true;
+
+        class Binary {
+            constructor() {
+                this.cx = W / 2 + (Math.random() - 0.5) * 60;
+                this.cy = H / 2 + (Math.random() - 0.5) * 60;
+
+                const r0 = 100 + Math.random() * 30;
+                const angle = Math.random() * Math.PI * 2;
+                this.rx = r0 * Math.cos(angle);
+                this.ry = r0 * Math.sin(angle);
+
+                // circular velocity
+                const vc = Math.sqrt(GM / r0);
+                this.vx = -vc * Math.sin(angle);
+                this.vy = vc * Math.cos(angle);
+
+                this.t1 = []; // trail body 1 (flat: x,y,x,y,...)
+                this.t2 = []; // trail body 2
+                this.merged = false;
+                this.mergeTime = 0;
+                this.mergeEcc = 0;
+            }
+
+            ecc() {
+                const r = Math.sqrt(this.rx * this.rx + this.ry * this.ry);
+                if (r < 1) return 0;
+                const v2 = this.vx * this.vx + this.vy * this.vy;
+                const eps = v2 / 2 - GM / r;
+                const h = this.rx * this.vy - this.ry * this.vx;
+                const e2 = 1 + 2 * eps * h * h / (GM * GM);
+                return e2 > 0 ? Math.sqrt(e2) : 0;
+            }
+
+            step(dt) {
+                if (this.merged) return;
+
+                const r2 = this.rx * this.rx + this.ry * this.ry;
+                const r = Math.sqrt(r2);
+                if (r < 0.5) { this.doMerge(); return; }
+
+                // softened gravity
+                const r2s = r2 + EPS2;
+                const invR3 = 1 / (r2s * Math.sqrt(r2s));
+                let ax = -GM * this.rx * invR3;
+                let ay = -GM * this.ry * invR3;
+
+                // inspiral drag
+                const v = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (v > 0.001) {
+                    const d = DRAG / r2;
+                    ax -= d * this.vx;
+                    ay -= d * this.vy;
+                }
+
+                // symplectic Euler
+                this.vx += ax * dt;
+                this.vy += ay * dt;
+                this.rx += this.vx * dt;
+                this.ry += this.vy * dt;
+
+                // trail points (equal mass: each body at ±r/2 from CoM)
+                const hx = this.rx * 0.5, hy = this.ry * 0.5;
+                this.t1.push(this.cx - hx, this.cy - hy);
+                this.t2.push(this.cx + hx, this.cy + hy);
+
+                if (this.t1.length > TRAIL_LEN * 2) {
+                    this.t1 = this.t1.slice(-TRAIL_LEN * 2);
+                    this.t2 = this.t2.slice(-TRAIL_LEN * 2);
+                }
+
+                const nr = Math.sqrt(this.rx * this.rx + this.ry * this.ry);
+                if (nr < MERGE_R) this.doMerge();
+            }
+
+            doMerge() {
+                if (this.t1.length < 4) return;
+                this.merged = true;
+                this.mergeTime = performance.now();
+                this.mergeEcc = this.ecc();
+                mergeCount++;
+
+                const n = this.t1.length;
+                const mx = (this.t1[n - 2] + this.t2[n - 2]) / 2;
+                const my = (this.t1[n - 1] + this.t2[n - 1]) / 2;
+
+                const glen = GHOST_TRAIL * 2;
+                ghosts.push({
+                    t1: this.t1.slice(-glen),
+                    t2: this.t2.slice(-glen),
+                    ecc: this.mergeEcc,
+                    mx, my,
+                    time: performance.now()
+                });
+                if (ghosts.length > MAX_GHOSTS) ghosts.shift();
+            }
+
+            perturb(dx, dy) {
+                if (this.merged) return;
+                const r = Math.sqrt(this.rx * this.rx + this.ry * this.ry);
+                const vc = Math.sqrt(GM / r);
+                const kick = vc * 0.4;
+                this.vx += dx * kick;
+                this.vy += dy * kick;
+
+                // clamp below escape
+                const v2 = this.vx * this.vx + this.vy * this.vy;
+                const vesc2 = 2 * GM / r;
+                if (v2 > vesc2 * 0.85) {
+                    const s = Math.sqrt(vesc2 * 0.85 / v2);
+                    this.vx *= s;
+                    this.vy *= s;
+                }
+            }
+        }
+
+        function spawn() { binary = new Binary(); }
+        spawn();
+
+        function handleInput(x, y) {
+            if (!binary || binary.merged) return;
+            const dx = x - binary.cx;
+            const dy = y - binary.cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            binary.perturb(dx / dist, dy / dist);
+            if (hintShown) {
+                hintEl.style.opacity = '0';
+                hintShown = false;
+            }
+        }
+
+        canvas.addEventListener('click', e => handleInput(e.clientX, e.clientY));
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            handleInput(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+        // Drawing helpers
+        function drawPath(arr, color, alpha, width) {
+            if (arr.length < 4) return;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            ctx.moveTo(arr[0], arr[1]);
+            for (let i = 2; i < arr.length; i += 2) {
+                ctx.lineTo(arr[i], arr[i + 1]);
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawFadingPath(arr, color, baseAlpha, width) {
+            if (arr.length < 4) return;
+            const totalPts = arr.length / 2;
+            const segs = 8;
+            const segLen = Math.ceil(totalPts / segs);
+
+            for (let s = 0; s < segs; s++) {
+                const si = s * segLen * 2;
+                const ei = Math.min((s + 1) * segLen * 2, arr.length);
+                if (ei - si < 4) continue;
+
+                const t = (s + 0.5) / segs;
+                ctx.globalAlpha = baseAlpha * (0.04 + 0.96 * t * t);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = width * (0.3 + 0.7 * t);
+                ctx.beginPath();
+                ctx.moveTo(arr[si], arr[si + 1]);
+                for (let i = si + 2; i < ei; i += 2) {
+                    ctx.lineTo(arr[i], arr[i + 1]);
+                }
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Main loop
+        let lastTime = performance.now();
+
+        function frame(now) {
+            const elapsed = Math.min(now - lastTime, 50);
+            lastTime = now;
+
+            // Physics substeps
+            const stepsPerSec = 300;
+            const steps = Math.min(Math.round(stepsPerSec * elapsed / 1000), 25);
+            for (let i = 0; i < steps; i++) {
+                if (binary && !binary.merged) binary.step(DT);
+            }
+
+            // Clear
+            ctx.fillStyle = '#080808';
+            ctx.fillRect(0, 0, W, H);
+
+            // Ghost trails
+            for (const g of ghosts) {
+                const age = (now - g.time) / 1000;
+                const a = Math.max(0.025, 0.12 * Math.exp(-age / 60));
+                drawPath(g.t1, '#3d3630', a, 0.6);
+                drawPath(g.t2, '#30363d', a, 0.6);
+
+                if (age < 25) {
+                    ctx.globalAlpha = Math.max(0, 0.45 * (1 - age / 25));
+                    ctx.fillStyle = '#666';
+                    ctx.font = '10px "JetBrains Mono"';
+                    ctx.textAlign = 'left';
+                    ctx.fillText('e=' + g.ecc.toFixed(3), g.mx + 10, g.my + 3);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // Active binary
+            if (binary && !binary.merged) {
+                drawFadingPath(binary.t1, '#917558', 0.5, 1);
+                drawFadingPath(binary.t2, '#587591', 0.5, 1);
+
+                const n = binary.t1.length;
+                if (n >= 2) {
+                    const x1 = binary.t1[n - 2], y1 = binary.t1[n - 1];
+                    const x2 = binary.t2[n - 2], y2 = binary.t2[n - 1];
+
+                    // Glow
+                    for (const [x, y, c] of [[x1, y1, '170,130,90'], [x2, y2, '90,130,170']]) {
+                        const gr = ctx.createRadialGradient(x, y, 0, x, y, 14);
+                        gr.addColorStop(0, 'rgba(' + c + ',0.1)');
+                        gr.addColorStop(1, 'rgba(' + c + ',0)');
+                        ctx.fillStyle = gr;
+                        ctx.fillRect(x - 14, y - 14, 28, 28);
+                    }
+
+                    // Bodies
+                    ctx.fillStyle = '#cfa06a';
+                    ctx.beginPath();
+                    ctx.arc(x1, y1, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#6aa0cf';
+                    ctx.beginPath();
+                    ctx.arc(x2, y2, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                const e = binary.ecc();
+                infoEl.textContent = 'e = ' + (isNaN(e) ? '—' : e.toFixed(3));
+
+            } else if (binary && binary.merged) {
+                const age = (now - binary.mergeTime) / 1000;
+
+                // Merger flash
+                if (age < 1.2) {
+                    const n = binary.t1.length;
+                    if (n >= 2) {
+                        const mx = (binary.t1[n - 2] + binary.t2[n - 2]) / 2;
+                        const my = (binary.t1[n - 1] + binary.t2[n - 1]) / 2;
+                        const flash = Math.max(0, 1 - age / 1.2);
+                        const gr = ctx.createRadialGradient(mx, my, 0, mx, my, flash * 30);
+                        gr.addColorStop(0, 'rgba(200,185,165,' + (flash * 0.3) + ')');
+                        gr.addColorStop(1, 'rgba(200,185,165,0)');
+                        ctx.fillStyle = gr;
+                        ctx.beginPath();
+                        ctx.arc(mx, my, flash * 30, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                infoEl.textContent = mergeCount + (mergeCount === 1 ? ' merger' : ' mergers');
+
+                if (age > 3) spawn();
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        requestAnimationFrame(frame);
+    </script>
+</body>
+</html>
