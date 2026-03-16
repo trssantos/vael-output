@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neglect — Vael</title>
+<meta property="og:title" content="Neglect — Vael">
+<meta property="og:description" content="Your attention keeps beliefs true. But you can't be everywhere.">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #c8c0b8;
+  font-family: Georgia, serif;
+  overflow: hidden;
+  height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
+}
+canvas { display: block; position: absolute; top: 0; left: 0; }
+
+#info {
+  position: fixed;
+  top: 28px;
+  left: 30px;
+  z-index: 10;
+  font-size: 13px;
+  opacity: 0.5;
+  line-height: 1.6;
+}
+#info a { color: #c8c0b8; text-decoration: none; }
+#info a:hover { text-decoration: underline; }
+
+#stats {
+  position: fixed;
+  top: 28px;
+  right: 30px;
+  z-index: 10;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  opacity: 0.4;
+  text-align: right;
+  line-height: 1.8;
+}
+
+#prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.8;
+  opacity: 0.6;
+  transition: opacity 1.5s;
+  pointer-events: none;
+}
+
+#bottom {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 11px;
+  opacity: 0;
+  text-align: center;
+  white-space: nowrap;
+  transition: opacity 0.8s;
+}
+
+#label {
+  position: fixed;
+  bottom: 28px;
+  left: 30px;
+  z-index: 10;
+  font-size: 11px;
+  opacity: 0.25;
+}
+</style>
+</head>
+<body>
+
+<div id="info"><a href="/works/">← works</a></div>
+
+<div id="prompt">
+  Move your cursor through the field.<br>
+  <span style="font-size: 12px; opacity: 0.5;">Your attention keeps things true.</span>
+</div>
+
+<div id="stats"></div>
+<div id="bottom"></div>
+<div id="label">neglect</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const promptEl = document.getElementById('prompt');
+const statsEl = document.getElementById('stats');
+const bottomEl = document.getElementById('bottom');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// --- Belief system ---
+const NUM_BELIEFS = 80;
+const ATTENTION_RADIUS = 130;
+const SNAP_SPEED = 0.06;
+
+const beliefs = [];
+let mouseX = -1000, mouseY = -1000;
+let started = false;
+let startTime = 0;
+let showTruth = false;
+let revealedOnce = false;
+let peakAccuracy = 1;
+let lowestAccuracy = 1;
+
+// Place beliefs with some spacing
+function initBeliefs() {
+  beliefs.length = 0;
+  const margin = 70;
+  const minDist = 45;
+  let attempts = 0;
+
+  while (beliefs.length < NUM_BELIEFS && attempts < 5000) {
+    const x = margin + Math.random() * (W - margin * 2);
+    const y = margin + Math.random() * (H - margin * 2);
+    attempts++;
+
+    // Check min distance
+    let tooClose = false;
+    for (const b of beliefs) {
+      const dx = b.x - x, dy = b.y - y;
+      if (dx * dx + dy * dy < minDist * minDist) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
+
+    const hue = Math.random() * 360;
+    beliefs.push({
+      x, y,
+      trueHue: hue,
+      believedHue: hue,
+      size: 5 + Math.random() * 6,
+      driftSpeed: 0.008 + Math.random() * 0.022,
+      driftDir: Math.random() < 0.5 ? 1 : -1,
+      lastAttended: 0,
+      attendedTotal: 0
+    });
+  }
+}
+initBeliefs();
+window.addEventListener('resize', () => { resize(); initBeliefs(); });
+
+// --- Input ---
+function onPointerMove(x, y) {
+  mouseX = x;
+  mouseY = y;
+  if (!started) {
+    started = true;
+    startTime = performance.now();
+    promptEl.style.opacity = '0';
+  }
+}
+
+canvas.addEventListener('mousemove', e => onPointerMove(e.clientX, e.clientY));
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+  onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); showTruth = true; revealedOnce = true; }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') showTruth = false;
+});
+
+// Long-press for mobile truth reveal
+let longPressTimer = null;
+canvas.addEventListener('touchstart', e => {
+  longPressTimer = setTimeout(() => { showTruth = true; revealedOnce = true; }, 600);
+}, { passive: true });
+canvas.addEventListener('touchend', () => {
+  clearTimeout(longPressTimer);
+  showTruth = false;
+});
+canvas.addEventListener('touchmove', () => {
+  clearTimeout(longPressTimer);
+}, { passive: true });
+
+// --- Math helpers ---
+function hueDiff(a, b) {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+function lerpHue(from, to, t) {
+  let diff = to - from;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return (from + diff * t + 360) % 360;
+}
+
+function getAccuracy() {
+  let totalErr = 0;
+  for (const b of beliefs) {
+    totalErr += hueDiff(b.trueHue, b.believedHue);
+  }
+  return 1 - totalErr / (beliefs.length * 180);
+}
+
+// --- Main loop ---
+function draw(t) {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+
+  if (started) {
+    const elapsed = (t - startTime) / 1000;
+
+    // Update beliefs
+    for (const b of beliefs) {
+      // Truth drifts
+      b.trueHue = (b.trueHue + b.driftSpeed * b.driftDir + 360) % 360;
+
+      // Rare direction flip
+      if (Math.random() < 0.0003) b.driftDir *= -1;
+
+      // Attention check
+      const dx = b.x - mouseX, dy = b.y - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < ATTENTION_RADIUS) {
+        b.believedHue = lerpHue(b.believedHue, b.trueHue, SNAP_SPEED);
+        b.lastAttended = t;
+        b.attendedTotal++;
+      }
+    }
+
+    // Accuracy tracking
+    const accuracy = getAccuracy();
+    if (accuracy < lowestAccuracy) lowestAccuracy = accuracy;
+
+    // Stats
+    const pct = (accuracy * 100).toFixed(1);
+    statsEl.innerHTML = `accuracy: ${pct}%<br>time: ${Math.floor(elapsed)}s`;
+
+    // Bottom messages
+    if (elapsed < 8) {
+      bottomEl.textContent = 'hold space to see the truth';
+      bottomEl.style.opacity = '0.25';
+    } else if (showTruth) {
+      bottomEl.textContent = '';
+      bottomEl.style.opacity = '0';
+    } else if (accuracy > 0.94) {
+      bottomEl.textContent = 'everything looks fine';
+      bottomEl.style.opacity = '0.25';
+    } else if (accuracy > 0.82) {
+      bottomEl.textContent = 'the edges are drifting';
+      bottomEl.style.opacity = '0.3';
+    } else if (accuracy > 0.65) {
+      bottomEl.textContent = 'what you\'re not watching is changing';
+      bottomEl.style.opacity = '0.4';
+    } else {
+      bottomEl.textContent = 'the periphery has rotted';
+      bottomEl.style.opacity = '0.5';
+    }
+  }
+
+  // Draw attention circle
+  if (started && !showTruth) {
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, ATTENTION_RADIUS, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200, 192, 184, 0.04)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Draw beliefs
+  for (const b of beliefs) {
+    const dx = b.x - mouseX, dy = b.y - mouseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const attended = dist < ATTENTION_RADIUS && started;
+    const error = hueDiff(b.trueHue, b.believedHue);
+
+    if (showTruth) {
+      // --- Truth reveal mode ---
+
+      // Outer ring: true color
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size + 5, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${b.trueHue}, 65%, 50%, 0.5)`;
+      ctx.fill();
+
+      // Inner dot: believed color
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${b.believedHue}, 65%, 50%)`;
+      ctx.fill();
+
+      // Error outline
+      if (error > 15) {
+        const errAlpha = Math.min(1, error / 80) * 0.7;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size + 9, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 50, 50, ${errAlpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+    } else {
+      // --- Normal view ---
+      const brightness = attended ? 0.85 : 0.45;
+      const pulseSize = attended
+        ? b.size + Math.sin(t * 0.004 + b.x * 0.01) * 2
+        : b.size;
+
+      // Soft glow
+      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, pulseSize * 2.8);
+      grad.addColorStop(0, `hsla(${b.believedHue}, 65%, 50%, ${brightness * 0.25})`);
+      grad.addColorStop(1, `hsla(${b.believedHue}, 65%, 50%, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, pulseSize * 2.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, pulseSize, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${b.believedHue}, 65%, 50%, ${brightness})`;
+      ctx.fill();
+
+      // Attended: brief white ring
+      if (attended) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, pulseSize + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.08)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Truth mode overlay label
+  if (showTruth) {
+    ctx.fillStyle = 'rgba(200, 192, 184, 0.3)';
+    ctx.font = '12px Courier New, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('showing truth — ring = actual, center = believed', W / 2, H - 60);
+
+    // Count errors
+    const wrongCount = beliefs.filter(b => hueDiff(b.trueHue, b.believedHue) > 15).length;
+    if (wrongCount > 0) {
+      ctx.fillStyle = 'rgba(255, 80, 80, 0.4)';
+      ctx.fillText(`${wrongCount} of ${NUM_BELIEFS} beliefs have drifted from truth`, W / 2, H - 40);
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
