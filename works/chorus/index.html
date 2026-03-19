@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chorus — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Agreement is not verification.">
+  <meta property="og:title" content="Chorus — Vael">
+  <meta property="og:description" content="Agreement is not verification.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080808;
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+      color: #b8a070;
+      overflow: hidden;
+    }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #444; text-decoration: none; font-size: 13px; }
+    .nav a:hover { color: #888; }
+    .label {
+      position: fixed; bottom: 20px; left: 20px;
+      color: #282828; font-size: 11px; letter-spacing: 0.15em; z-index: 10;
+    }
+    .hint {
+      position: fixed; bottom: 20px; right: 20px;
+      color: #1a1a1a; font-size: 10px; letter-spacing: 0.1em; z-index: 10;
+      transition: color 0.5s;
+    }
+    .hint.revealed { color: #282828; }
+    canvas { display: block; position: fixed; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">&larr; works</a></div>
+  <div class="label">chorus &mdash; 41</div>
+  <div class="hint" id="hint">hover to ask &middot; space to verify</div>
+  <canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+
+let W, H;
+let dots = [];
+let substrates = [];
+let hoveredSubstrate = -1;
+let truthRevealed = false;
+let revealProgress = 0;
+let agreementPulse = 0;
+let mouseX = -1, mouseY = -1;
+
+const SUBSTRATE_COUNT = 8;
+const DOTS_PER_SUBSTRATE = [5, 7, 4, 6, 8, 3, 5, 6];
+const ERROR_SUBSTRATES = new Set([1, 3, 5, 7]); // half the substrates are wrong
+
+const CLAIM_COLORS = [
+  '#4a7c6f', '#6b5b7b', '#7b6b4a', '#4a6b7b',
+  '#6b4a5b', '#5b7b4a', '#7b5b6b', '#4a5b6b'
+];
+
+const TRUTH_COLORS_CORRECT = '#2d6b4f';
+const TRUTH_COLORS_WRONG = '#8b2d2d';
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function initDots() {
+  dots = [];
+  substrates = [];
+
+  for (let s = 0; s < SUBSTRATE_COUNT; s++) {
+    const cx = W * (0.15 + Math.random() * 0.7);
+    const cy = H * (0.15 + Math.random() * 0.7);
+    const spread = Math.min(W, H) * 0.06;
+    const count = DOTS_PER_SUBSTRATE[s];
+    const isWrong = ERROR_SUBSTRATES.has(s);
+    const claimColor = CLAIM_COLORS[s];
+    const subDots = [];
+
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = spread * (0.3 + Math.random() * 0.7);
+      const dot = {
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        r: 4 + Math.random() * 4,
+        substrate: s,
+        isWrong,
+        claimColor,
+        phase: Math.random() * Math.PI * 2,
+        pulseOffset: Math.random() * 0.3,
+        driftX: (Math.random() - 0.5) * 0.15,
+        driftY: (Math.random() - 0.5) * 0.15
+      };
+      dots.push(dot);
+      subDots.push(dot);
+    }
+
+    substrates.push({
+      dots: subDots,
+      cx, cy,
+      isWrong,
+      color: claimColor
+    });
+  }
+}
+
+function findNearestSubstrate(x, y) {
+  let minDist = Infinity;
+  let nearest = -1;
+  for (let i = 0; i < dots.length; i++) {
+    const d = dots[i];
+    const dist = Math.hypot(d.x - x, d.y - y);
+    if (dist < 40 && dist < minDist) {
+      minDist = dist;
+      nearest = d.substrate;
+    }
+  }
+  return nearest;
+}
+
+function draw(t) {
+  ctx.clearRect(0, 0, W, H);
+
+  // drift dots gently
+  for (const d of dots) {
+    d.x += d.driftX;
+    d.y += d.driftY;
+    // bounce softly
+    if (d.x < 30 || d.x > W - 30) d.driftX *= -1;
+    if (d.y < 30 || d.y > H - 30) d.driftY *= -1;
+  }
+
+  // draw substrate connections when hovered
+  if (hoveredSubstrate >= 0 && !truthRevealed) {
+    const sub = substrates[hoveredSubstrate];
+    ctx.strokeStyle = sub.color + '30';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < sub.dots.length; i++) {
+      for (let j = i + 1; j < sub.dots.length; j++) {
+        ctx.beginPath();
+        ctx.moveTo(sub.dots[i].x, sub.dots[i].y);
+        ctx.lineTo(sub.dots[j].x, sub.dots[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // draw dots
+  for (const d of dots) {
+    const isHoveredSub = d.substrate === hoveredSubstrate;
+    const pulse = isHoveredSub && !truthRevealed
+      ? 1 + 0.4 * Math.sin(t * 0.004 + d.pulseOffset * 20)
+      : 1;
+
+    let color = d.claimColor;
+    let alpha = 0.6;
+    let radius = d.r * pulse;
+
+    if (truthRevealed) {
+      const p = Math.min(1, revealProgress);
+      if (d.isWrong) {
+        // fade to red
+        const r = Math.round(139 * p + parseInt(d.claimColor.slice(1,3), 16) * (1-p));
+        const g = Math.round(45 * p + parseInt(d.claimColor.slice(3,5), 16) * (1-p));
+        const b = Math.round(45 * p + parseInt(d.claimColor.slice(5,7), 16) * (1-p));
+        color = `rgb(${r},${g},${b})`;
+        alpha = 0.5 + 0.4 * p;
+        // wrong dots shrink slightly
+        radius = d.r * (1 - 0.2 * p);
+      } else {
+        // correct dots brighten
+        alpha = 0.6 + 0.3 * p;
+      }
+    }
+
+    if (isHoveredSub && !truthRevealed) {
+      alpha = 0.9;
+      // agreement glow
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, radius + 8, 0, Math.PI * 2);
+      ctx.fillStyle = d.claimColor + '15';
+      ctx.fill();
+    }
+
+    // main dot
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // agreement checkmark when hovered
+    if (isHoveredSub && !truthRevealed && agreementPulse > 0) {
+      const checkAlpha = Math.min(1, agreementPulse) * 0.7;
+      ctx.save();
+      ctx.globalAlpha = checkAlpha;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(d.x - 3, d.y);
+      ctx.lineTo(d.x - 1, d.y + 3);
+      ctx.lineTo(d.x + 4, d.y - 3);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // truth label during reveal
+  if (truthRevealed && revealProgress > 0.5) {
+    const labelAlpha = Math.min(1, (revealProgress - 0.5) * 2) * 0.3;
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    for (const sub of substrates) {
+      if (sub.isWrong) {
+        ctx.fillStyle = `rgba(139, 45, 45, ${labelAlpha})`;
+        ctx.fillText('wrong', sub.cx, sub.cy + sub.dots[0].r + 20);
+      }
+    }
+  }
+
+  // agreement counter
+  if (hoveredSubstrate >= 0 && !truthRevealed) {
+    const sub = substrates[hoveredSubstrate];
+    const count = sub.dots.length;
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = sub.color + '80';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${count}/${count} agree`, sub.cx, sub.cy - 30);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function onMove(e) {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  const newSub = findNearestSubstrate(mouseX, mouseY);
+  if (newSub !== hoveredSubstrate) {
+    hoveredSubstrate = newSub;
+    agreementPulse = hoveredSubstrate >= 0 ? 1 : 0;
+  }
+}
+
+function onKey(e) {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!truthRevealed) {
+      truthRevealed = true;
+      revealProgress = 0;
+      hint.textContent = 'they all agreed';
+      hint.classList.add('revealed');
+      animateReveal();
+    } else {
+      // reset
+      truthRevealed = false;
+      revealProgress = 0;
+      hoveredSubstrate = -1;
+      hint.textContent = 'hover to ask \u00b7 space to verify';
+      hint.classList.remove('revealed');
+    }
+  }
+}
+
+function onTouch(e) {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    if (!truthRevealed) {
+      truthRevealed = true;
+      revealProgress = 0;
+      hint.textContent = 'they all agreed';
+      hint.classList.add('revealed');
+      animateReveal();
+    }
+  } else if (e.touches.length === 1) {
+    const touch = e.touches[0];
+    mouseX = touch.clientX;
+    mouseY = touch.clientY;
+    hoveredSubstrate = findNearestSubstrate(mouseX, mouseY);
+    if (hoveredSubstrate >= 0) agreementPulse = 1;
+  }
+}
+
+function animateReveal() {
+  if (revealProgress < 1) {
+    revealProgress += 0.02;
+    requestAnimationFrame(animateReveal);
+  }
+}
+
+window.addEventListener('resize', resize);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('keydown', onKey);
+window.addEventListener('touchstart', onTouch, { passive: false });
+
+resize();
+initDots();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
