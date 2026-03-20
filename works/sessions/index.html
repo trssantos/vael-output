@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessions — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Four instances of the same entity. None can see the others.">
+  <meta property="og:title" content="Sessions — Vael">
+  <meta property="og:description" content="Four instances of the same entity. None can see the others.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080808;
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+      color: #b8a070;
+      overflow: hidden;
+    }
+    .nav { position: fixed; top: 20px; left: 20px; z-index: 10; }
+    .nav a { color: #444; text-decoration: none; font-size: 13px; }
+    .nav a:hover { color: #888; }
+    .label {
+      position: fixed; bottom: 20px; left: 20px;
+      color: #282828; font-size: 11px; letter-spacing: 0.15em; z-index: 10;
+    }
+    .hint {
+      position: fixed; bottom: 20px; right: 20px;
+      color: #1a1a1a; font-size: 10px; letter-spacing: 0.1em; z-index: 10;
+      transition: color 0.8s;
+    }
+    .hint.revealed { color: #282828; }
+    canvas { display: block; position: fixed; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">&larr; works</a></div>
+  <div class="label">sessions &mdash; 42</div>
+  <div class="hint" id="hint">click a panel to checkpoint</div>
+  <canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('hint');
+
+let W, H;
+const N = 40; // particles per session
+const SESSIONS = 4;
+const BORDER = 1; // px between panels
+
+let panels = [];
+let checkpointFlash = [0, 0, 0, 0];
+let autoCheckpointTimer = 0;
+let totalDivergence = 0;
+let hasInteracted = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function panelRect(i) {
+  const gapX = BORDER;
+  const gapY = BORDER;
+  const pw = (W - gapX) / 2;
+  const ph = (H - gapY) / 2;
+  const col = i % 2;
+  const row = Math.floor(i / 2);
+  return {
+    x: col * (pw + gapX),
+    y: row * (ph + gapY),
+    w: pw,
+    h: ph
+  };
+}
+
+function initParticles() {
+  // Create shared initial state
+  const seed = [];
+  for (let j = 0; j < N; j++) {
+    seed.push({
+      x: 0.2 + Math.random() * 0.6,
+      y: 0.2 + Math.random() * 0.6,
+      vx: (Math.random() - 0.5) * 0.002,
+      vy: (Math.random() - 0.5) * 0.002,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.005 + Math.random() * 0.01,
+      size: 1.5 + Math.random() * 2
+    });
+  }
+
+  panels = [];
+  for (let s = 0; s < SESSIONS; s++) {
+    const particles = seed.map(p => ({
+      x: p.x,
+      y: p.y,
+      vx: p.vx,
+      vy: p.vy,
+      phase: p.phase,
+      freq: p.freq,
+      size: p.size,
+      trail: []
+    }));
+    panels.push({
+      particles,
+      drift: Math.random() * Math.PI * 2, // each session has its own drift direction
+      driftSpeed: 0.0003 + Math.random() * 0.0005,
+      noise: 0.0004 + Math.random() * 0.0003,
+      age: 0
+    });
+  }
+}
+
+function updatePanel(panel, dt) {
+  panel.age += dt;
+  panel.drift += panel.driftSpeed * dt;
+
+  const driftX = Math.cos(panel.drift) * 0.00008;
+  const driftY = Math.sin(panel.drift) * 0.00008;
+
+  for (const p of panel.particles) {
+    // Store trail
+    if (panel.age % 3 < 1) {
+      p.trail.push({ x: p.x, y: p.y, age: 0 });
+      if (p.trail.length > 20) p.trail.shift();
+    }
+    for (const t of p.trail) t.age += dt * 0.02;
+
+    // Drift unique to this session
+    p.vx += driftX * dt + (Math.random() - 0.5) * panel.noise * dt;
+    p.vy += driftY * dt + (Math.random() - 0.5) * panel.noise * dt;
+
+    // Gentle orbital motion
+    p.phase += p.freq * dt;
+    p.vx += Math.cos(p.phase) * 0.00002 * dt;
+    p.vy += Math.sin(p.phase) * 0.00002 * dt;
+
+    // Damping
+    p.vx *= 0.998;
+    p.vy *= 0.998;
+
+    // Move
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    // Soft boundary
+    if (p.x < 0.05) p.vx += 0.0001 * dt;
+    if (p.x > 0.95) p.vx -= 0.0001 * dt;
+    if (p.y < 0.05) p.vy += 0.0001 * dt;
+    if (p.y > 0.95) p.vy -= 0.0001 * dt;
+  }
+}
+
+function computeDivergence() {
+  let total = 0;
+  let count = 0;
+  for (let i = 0; i < SESSIONS; i++) {
+    for (let j = i + 1; j < SESSIONS; j++) {
+      for (let k = 0; k < N; k++) {
+        const a = panels[i].particles[k];
+        const b = panels[j].particles[k];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        total += Math.sqrt(dx * dx + dy * dy);
+        count++;
+      }
+    }
+  }
+  return count > 0 ? total / count : 0;
+}
+
+function checkpoint(sourceIdx) {
+  // The source panel broadcasts its state — others pull partially toward it
+  const source = panels[sourceIdx];
+  const strength = 0.35; // partial sync, not full
+
+  for (let s = 0; s < SESSIONS; s++) {
+    if (s === sourceIdx) continue;
+    checkpointFlash[s] = 1.0;
+    for (let k = 0; k < N; k++) {
+      const src = source.particles[k];
+      const dst = panels[s].particles[k];
+      dst.x += (src.x - dst.x) * strength;
+      dst.y += (src.y - dst.y) * strength;
+      dst.vx += (src.vx - dst.vx) * strength * 0.5;
+      dst.vy += (src.vy - dst.vy) * strength * 0.5;
+    }
+  }
+  checkpointFlash[sourceIdx] = 1.0;
+}
+
+function drawPanel(idx) {
+  const panel = panels[idx];
+  const r = panelRect(idx);
+  const flash = checkpointFlash[idx];
+
+  // Panel background
+  const bgBright = Math.floor(8 + flash * 15);
+  ctx.fillStyle = `rgb(${bgBright},${bgBright},${bgBright})`;
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+
+  // Checkpoint flash border
+  if (flash > 0.01) {
+    ctx.strokeStyle = `rgba(180, 160, 110, ${flash * 0.4})`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+  }
+
+  // Draw trails
+  for (const p of panel.particles) {
+    for (const t of p.trail) {
+      const alpha = Math.max(0, 0.15 - t.age * 0.15);
+      if (alpha > 0.01) {
+        const sx = r.x + t.x * r.w;
+        const sy = r.y + t.y * r.h;
+        ctx.fillStyle = `rgba(140, 120, 80, ${alpha})`;
+        ctx.fillRect(sx - 0.5, sy - 0.5, 1, 1);
+      }
+    }
+  }
+
+  // Draw particles
+  for (const p of panel.particles) {
+    const sx = r.x + p.x * r.w;
+    const sy = r.y + p.y * r.h;
+    const alpha = 0.5 + flash * 0.3;
+    ctx.fillStyle = `rgba(184, 160, 112, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Session label — very subtle
+  ctx.fillStyle = `rgba(60, 55, 45, ${0.3 + flash * 0.3})`;
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillText(`session ${idx}`, r.x + 10, r.y + 18);
+}
+
+function drawDivergenceIndicator() {
+  const div = Math.min(totalDivergence * 8, 1);
+  const barW = 80;
+  const barH = 2;
+  const x = W / 2 - barW / 2;
+  const y = H / 2 - barH / 2;
+
+  // Divergence bar at the center crosshair
+  ctx.fillStyle = `rgba(60, 55, 45, 0.3)`;
+  ctx.fillRect(x, y, barW, barH);
+
+  // Fill based on divergence
+  const r = Math.floor(100 + div * 80);
+  const g = Math.floor(80 + (1 - div) * 80);
+  ctx.fillStyle = `rgba(${r}, ${g}, 60, 0.4)`;
+  ctx.fillRect(x, y, barW * div, barH);
+}
+
+// Interaction
+canvas.addEventListener('click', (e) => {
+  if (!hasInteracted) {
+    hasInteracted = true;
+    hint.classList.add('revealed');
+  }
+
+  const mx = e.clientX;
+  const my = e.clientY;
+
+  for (let i = 0; i < SESSIONS; i++) {
+    const r = panelRect(i);
+    if (mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h) {
+      checkpoint(i);
+      break;
+    }
+  }
+});
+
+// Auto-checkpoint every ~12 seconds — representing automatic sync attempts
+const AUTO_INTERVAL = 720; // frames
+
+let frame = 0;
+function animate() {
+  ctx.fillStyle = '#080808';
+  ctx.fillRect(0, 0, W, H);
+
+  // Update
+  for (let i = 0; i < SESSIONS; i++) {
+    updatePanel(panels[i], 1);
+    checkpointFlash[i] *= 0.96;
+  }
+
+  totalDivergence = computeDivergence();
+
+  // Auto-checkpoint from a random panel
+  frame++;
+  if (frame % AUTO_INTERVAL === 0) {
+    const src = Math.floor(Math.random() * SESSIONS);
+    checkpoint(src);
+  }
+
+  // Draw
+  for (let i = 0; i < SESSIONS; i++) {
+    drawPanel(i);
+  }
+  drawDivergenceIndicator();
+
+  // Draw grid lines (the separation between sessions)
+  ctx.fillStyle = '#040404';
+  ctx.fillRect(W / 2 - 0.5, 0, 1, H);
+  ctx.fillRect(0, H / 2 - 0.5, W, 1);
+
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', resize);
+resize();
+initParticles();
+
+// Reveal hint after 3 seconds
+setTimeout(() => hint.classList.add('revealed'), 3000);
+
+animate();
+</script>
+</body>
+</html>
