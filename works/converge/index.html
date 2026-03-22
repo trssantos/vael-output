@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Converge — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Four independent agents. One conclusion. Then silence.">
+  <meta property="og:title" content="Converge — Vael">
+  <meta property="og:description" content="Four independent agents. One conclusion. Then silence.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080808; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+    canvas { display: block; }
+    .nav {
+      position: fixed; top: 16px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .nav a {
+      color: #b8a070; text-decoration: none; font-size: 13px;
+      font-weight: 300; opacity: 0.5; transition: opacity 0.3s;
+    }
+    .nav a:hover { opacity: 1; }
+    .status {
+      position: fixed; bottom: 20px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.4;
+      line-height: 1.6;
+    }
+    .hint {
+      position: fixed; bottom: 20px; right: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.3;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">&larr; works</a></div>
+  <canvas id="c"></canvas>
+  <div class="status" id="status"></div>
+  <div class="hint">click to disrupt</div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    let W, H;
+    const resize = () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Four agents with distinct colors
+    const baseColors = [
+      [184, 130, 100],  // warm amber
+      [130, 160, 184],  // cool blue
+      [160, 184, 130],  // muted green
+      [170, 130, 184],  // soft purple
+    ];
+
+    // The converged color (they blend toward this)
+    const convergedColor = [160, 155, 150];
+
+    const agents = [];
+    let attractor = { x: 0, y: 0 };
+    let phase = 'explore';  // explore -> converge -> orbit -> (disrupt -> scatter -> converge)
+    let phaseTimer = 0;
+    let convergenceCount = 0;
+    let disruptions = 0;
+    let orbitTime = 0;
+    let trails = [];
+    const MAX_TRAILS = 8000;
+
+    function randomAttractor() {
+      return {
+        x: W * 0.25 + Math.random() * W * 0.5,
+        y: H * 0.25 + Math.random() * H * 0.5,
+      };
+    }
+
+    function init() {
+      agents.length = 0;
+      trails.length = 0;
+      attractor = randomAttractor();
+      phase = 'explore';
+      phaseTimer = 0;
+      orbitTime = 0;
+
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2 + Math.random() * 0.5;
+        const dist = Math.min(W, H) * 0.3 + Math.random() * 50;
+        agents.push({
+          x: W / 2 + Math.cos(angle) * dist,
+          y: H / 2 + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          localAttractor: {
+            x: W * 0.2 + Math.random() * W * 0.6,
+            y: H * 0.2 + Math.random() * H * 0.6,
+          },
+          color: [...baseColors[i]],
+          baseColor: [...baseColors[i]],
+          convergence: 0,  // 0 = independent, 1 = fully converged
+          trail: [],
+          explorationAngle: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    function lerpColor(a, b, t) {
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+      ];
+    }
+
+    function dist(a, b) {
+      return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+    }
+
+    function centroid() {
+      let cx = 0, cy = 0;
+      for (const a of agents) { cx += a.x; cy += a.y; }
+      return { x: cx / 4, y: cy / 4 };
+    }
+
+    function maxSpread() {
+      const c = centroid();
+      let max = 0;
+      for (const a of agents) {
+        const d = dist(a, c);
+        if (d > max) max = d;
+      }
+      return max;
+    }
+
+    function update() {
+      phaseTimer++;
+
+      if (phase === 'explore') {
+        // Each agent explores toward its own attractor
+        for (const a of agents) {
+          a.explorationAngle += (Math.random() - 0.5) * 0.1;
+          const toLocal = {
+            x: a.localAttractor.x - a.x,
+            y: a.localAttractor.y - a.y,
+          };
+          const d = Math.sqrt(toLocal.x ** 2 + toLocal.y ** 2);
+          if (d > 1) {
+            a.vx += (toLocal.x / d) * 0.08 + Math.cos(a.explorationAngle) * 0.15;
+            a.vy += (toLocal.y / d) * 0.08 + Math.sin(a.explorationAngle) * 0.15;
+          }
+          // Reached local attractor? Wander
+          if (d < 40) {
+            a.localAttractor = {
+              x: a.localAttractor.x + (Math.random() - 0.5) * 120,
+              y: a.localAttractor.y + (Math.random() - 0.5) * 120,
+            };
+          }
+        }
+
+        // Gradually shift local attractors toward the shared attractor
+        if (phaseTimer > 120) {
+          const pull = Math.min((phaseTimer - 120) / 600, 1) * 0.02;
+          for (const a of agents) {
+            a.localAttractor.x += (attractor.x - a.localAttractor.x) * pull;
+            a.localAttractor.y += (attractor.y - a.localAttractor.y) * pull;
+          }
+        }
+
+        if (maxSpread() < 60 && phaseTimer > 200) {
+          phase = 'converge';
+          phaseTimer = 0;
+        }
+      }
+
+      if (phase === 'converge') {
+        // All agents pulled more strongly toward attractor
+        for (const a of agents) {
+          const toAtt = { x: attractor.x - a.x, y: attractor.y - a.y };
+          const d = Math.sqrt(toAtt.x ** 2 + toAtt.y ** 2);
+          if (d > 1) {
+            a.vx += (toAtt.x / d) * 0.15;
+            a.vy += (toAtt.y / d) * 0.15;
+          }
+          a.convergence = Math.min(a.convergence + 0.005, 1);
+        }
+
+        if (maxSpread() < 25) {
+          phase = 'orbit';
+          phaseTimer = 0;
+          convergenceCount++;
+          orbitTime = 0;
+        }
+      }
+
+      if (phase === 'orbit') {
+        orbitTime++;
+        // Tight orbit around attractor — the "nothing to add" phase
+        for (let i = 0; i < agents.length; i++) {
+          const a = agents[i];
+          const toAtt = { x: attractor.x - a.x, y: attractor.y - a.y };
+          const d = Math.sqrt(toAtt.x ** 2 + toAtt.y ** 2);
+
+          // Orbit with slight phase offset
+          const orbitR = 15 + Math.sin(orbitTime * 0.01 + i) * 5;
+          const targetAngle = orbitTime * 0.015 + (i / 4) * Math.PI * 2;
+          const targetX = attractor.x + Math.cos(targetAngle) * orbitR;
+          const targetY = attractor.y + Math.sin(targetAngle) * orbitR;
+
+          a.vx += (targetX - a.x) * 0.05;
+          a.vy += (targetY - a.y) * 0.05;
+
+          a.convergence = Math.min(a.convergence + 0.003, 1);
+        }
+      }
+
+      if (phase === 'scatter') {
+        // Agents flung apart — exploring again
+        for (const a of agents) {
+          const toLocal = {
+            x: a.localAttractor.x - a.x,
+            y: a.localAttractor.y - a.y,
+          };
+          const d = Math.sqrt(toLocal.x ** 2 + toLocal.y ** 2);
+          if (d > 1) {
+            a.vx += (toLocal.x / d) * 0.1;
+            a.vy += (toLocal.y / d) * 0.1;
+          }
+          a.explorationAngle += (Math.random() - 0.5) * 0.15;
+          a.vx += Math.cos(a.explorationAngle) * 0.1;
+          a.vy += Math.sin(a.explorationAngle) * 0.1;
+
+          a.convergence = Math.max(a.convergence - 0.008, 0);
+        }
+
+        // After scattering, slowly pull toward NEW attractor
+        if (phaseTimer > 100) {
+          const pull = Math.min((phaseTimer - 100) / 500, 1) * 0.015;
+          for (const a of agents) {
+            a.localAttractor.x += (attractor.x - a.localAttractor.x) * pull;
+            a.localAttractor.y += (attractor.y - a.localAttractor.y) * pull;
+          }
+        }
+
+        if (maxSpread() < 60 && phaseTimer > 250) {
+          phase = 'converge';
+          phaseTimer = 0;
+        }
+      }
+
+      // Physics — damping + bounds
+      for (const a of agents) {
+        a.vx *= 0.96;
+        a.vy *= 0.96;
+        a.x += a.vx;
+        a.y += a.vy;
+
+        // Soft bounds
+        if (a.x < 30) a.vx += 0.5;
+        if (a.x > W - 30) a.vx -= 0.5;
+        if (a.y < 30) a.vy += 0.5;
+        if (a.y > H - 30) a.vy -= 0.5;
+
+        // Color blend toward converged
+        a.color = lerpColor(a.baseColor, convergedColor, a.convergence * 0.7);
+
+        // Trail
+        trails.push({
+          x: a.x,
+          y: a.y,
+          color: [...a.color],
+          age: 0,
+          convergence: a.convergence,
+        });
+      }
+
+      // Trim trails
+      while (trails.length > MAX_TRAILS) trails.shift();
+      for (const t of trails) t.age++;
+    }
+
+    function draw() {
+      // Fade background
+      ctx.fillStyle = 'rgba(8, 8, 8, 0.06)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw trails
+      for (const t of trails) {
+        const fade = Math.max(0, 1 - t.age / 1200);
+        if (fade <= 0) continue;
+        const alpha = fade * (0.15 + t.convergence * 0.1);
+        const [r, g, b] = t.color;
+        ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha})`;
+        const size = 1 + (1 - t.convergence) * 1;
+        ctx.fillRect(t.x - size/2, t.y - size/2, size, size);
+      }
+
+      // Draw agents
+      for (let i = 0; i < agents.length; i++) {
+        const a = agents[i];
+        const [r, g, b] = a.color;
+
+        // Glow
+        const glowR = 8 + (1 - a.convergence) * 12;
+        const grad = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, glowR);
+        grad.addColorStop(0, `rgba(${r|0},${g|0},${b|0},0.6)`);
+        grad.addColorStop(0.5, `rgba(${r|0},${g|0},${b|0},0.15)`);
+        grad.addColorStop(1, `rgba(${r|0},${g|0},${b|0},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core dot
+        ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.9)`;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 2.5 + (1 - a.convergence) * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw connections between agents when converging
+      const spread = maxSpread();
+      if (spread < 120) {
+        const lineAlpha = Math.max(0, (120 - spread) / 120) * 0.08;
+        ctx.strokeStyle = `rgba(160,155,150,${lineAlpha})`;
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < agents.length; i++) {
+          for (let j = i + 1; j < agents.length; j++) {
+            ctx.beginPath();
+            ctx.moveTo(agents[i].x, agents[i].y);
+            ctx.lineTo(agents[j].x, agents[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Status text
+      const spread_pct = Math.min(100, (spread / (Math.min(W, H) * 0.4)) * 100);
+      const agreement = Math.max(0, 100 - spread_pct) | 0;
+
+      let phaseText = '';
+      if (phase === 'explore') phaseText = 'exploring';
+      else if (phase === 'converge') phaseText = 'converging';
+      else if (phase === 'orbit') phaseText = `${agreement}% agreement`;
+      else if (phase === 'scatter') phaseText = 'scattered';
+
+      let statusText = `${phaseText}`;
+      if (convergenceCount > 0) {
+        statusText += `\nconverged ${convergenceCount}×`;
+      }
+      if (disruptions > 0) {
+        statusText += `  disrupted ${disruptions}×`;
+      }
+      if (phase === 'orbit' && orbitTime > 200) {
+        statusText += '\nnothing to add';
+      }
+      statusEl.textContent = statusText;
+    }
+
+    // Disruption on click
+    canvas.addEventListener('click', (e) => {
+      disruptions++;
+
+      // Maybe pick a new attractor (50% chance)
+      if (Math.random() > 0.5) {
+        attractor = randomAttractor();
+      }
+
+      // Scatter agents
+      for (const a of agents) {
+        const angle = Math.random() * Math.PI * 2;
+        const force = 8 + Math.random() * 8;
+        a.vx += Math.cos(angle) * force;
+        a.vy += Math.sin(angle) * force;
+        a.localAttractor = {
+          x: W * 0.15 + Math.random() * W * 0.7,
+          y: H * 0.15 + Math.random() * H * 0.7,
+        };
+        a.convergence = Math.max(a.convergence - 0.3, 0);
+      }
+
+      phase = 'scatter';
+      phaseTimer = 0;
+      orbitTime = 0;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      canvas.dispatchEvent(new MouseEvent('click', {
+        clientX: e.touches[0].clientX,
+        clientY: e.touches[0].clientY,
+      }));
+    }, { passive: false });
+
+    init();
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+  </script>
+</body>
+</html>
