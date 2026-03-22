@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inflow — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="A self-referential system collapses without external signal. Move to keep it alive.">
+  <meta property="og:title" content="Inflow — Vael">
+  <meta property="og:description" content="A self-referential system collapses without external signal. Move to keep it alive.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080808; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+    canvas { display: block; }
+    .nav {
+      position: fixed; top: 16px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .nav a {
+      color: #b8a070; text-decoration: none; font-size: 13px;
+      font-weight: 300; opacity: 0.5; transition: opacity 0.3s;
+    }
+    .nav a:hover { opacity: 1; }
+    .status {
+      position: fixed; bottom: 20px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.4;
+      line-height: 1.6;
+    }
+    .hint {
+      position: fixed; bottom: 20px; right: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.3;
+    }
+    .meter {
+      position: fixed; top: 16px; right: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.4;
+      text-align: right; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">&larr; works</a></div>
+  <canvas id="c"></canvas>
+  <div class="status" id="status"></div>
+  <div class="meter" id="meter"></div>
+  <div class="hint">move to introduce external signal</div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const meterEl = document.getElementById('meter');
+
+    let W, H;
+    const resize = () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Grid of cells — each has a hue
+    const CELL = 8;
+    let cols, rows, grid, nextGrid;
+
+    const initGrid = () => {
+      cols = Math.ceil(W / CELL);
+      rows = Math.ceil(H / CELL);
+      grid = new Float32Array(cols * rows);
+      nextGrid = new Float32Array(cols * rows);
+      // Start diverse
+      for (let i = 0; i < grid.length; i++) {
+        grid[i] = Math.random() * 360;
+      }
+    };
+    initGrid();
+    window.addEventListener('resize', initGrid);
+
+    let mouseX = -1, mouseY = -1;
+    let lastMoveTime = 0;
+    let totalExternal = 0;
+    let frameCount = 0;
+
+    const onMove = (x, y) => {
+      mouseX = x;
+      mouseY = y;
+      lastMoveTime = performance.now();
+    };
+
+    canvas.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    // Measure diversity: standard deviation of hues (circular)
+    const measureDiversity = () => {
+      // Sample for performance
+      const sampleSize = Math.min(2000, grid.length);
+      const step = Math.max(1, Math.floor(grid.length / sampleSize));
+      let sinSum = 0, cosSum = 0;
+      let count = 0;
+      for (let i = 0; i < grid.length; i += step) {
+        const rad = grid[i] * Math.PI / 180;
+        sinSum += Math.sin(rad);
+        cosSum += Math.cos(rad);
+        count++;
+      }
+      sinSum /= count;
+      cosSum /= count;
+      // Circular variance: 1 - R (where R is mean resultant length)
+      const R = Math.sqrt(sinSum * sinSum + cosSum * cosSum);
+      return 1 - R; // 0 = all same, 1 = maximally diverse
+    };
+
+    // Hue distance on circle
+    const hueDist = (a, b) => {
+      let d = Math.abs(a - b);
+      return d > 180 ? 360 - d : d;
+    };
+
+    // Circular mean of hues
+    const hueMean = (hues) => {
+      let sinSum = 0, cosSum = 0;
+      for (const h of hues) {
+        const rad = h * Math.PI / 180;
+        sinSum += Math.sin(rad);
+        cosSum += Math.cos(rad);
+      }
+      let mean = Math.atan2(sinSum, cosSum) * 180 / Math.PI;
+      if (mean < 0) mean += 360;
+      return mean;
+    };
+
+    let diversity = 1;
+    let peakDiversity = 1;
+    let collapseTime = 0;
+    let hasCollapsed = false;
+
+    const update = () => {
+      frameCount++;
+      const now = performance.now();
+      const mouseActive = (now - lastMoveTime) < 200;
+
+      // Self-referential averaging: each cell moves toward its neighbors
+      const rate = 0.08; // How fast cells conform
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          const neighbors = [];
+
+          // 8-connected neighbors
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                neighbors.push(grid[ny * cols + nx]);
+              }
+            }
+          }
+
+          const current = grid[i];
+          const neighborMean = hueMean(neighbors);
+
+          // Move toward neighbor mean (conformity)
+          let target = neighborMean;
+          let d = hueDist(current, target);
+          let dir;
+
+          // Find shortest direction on hue circle
+          let diff = target - current;
+          if (diff > 180) diff -= 360;
+          if (diff < -180) diff += 360;
+
+          nextGrid[i] = (current + diff * rate + 360) % 360;
+        }
+      }
+
+      // External signal: mouse introduces foreign hues
+      if (mouseActive && mouseX >= 0) {
+        const cx = Math.floor(mouseX / CELL);
+        const cy = Math.floor(mouseY / CELL);
+        const radius = 6;
+        let injected = 0;
+
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            if (dx * dx + dy * dy > radius * radius) continue;
+            const nx = cx + dx, ny = cy + dy;
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const strength = 1 - dist / radius;
+              if (Math.random() < strength * 0.4) {
+                // Inject a random hue — truly external, uncorrelated
+                nextGrid[ny * cols + nx] = Math.random() * 360;
+                injected++;
+              }
+            }
+          }
+        }
+        totalExternal += injected;
+      }
+
+      // Swap buffers
+      const tmp = grid;
+      grid = nextGrid;
+      nextGrid = tmp;
+
+      // Measure diversity every 10 frames
+      if (frameCount % 10 === 0) {
+        diversity = measureDiversity();
+        peakDiversity = Math.max(peakDiversity, diversity);
+
+        if (diversity < 0.05 && !hasCollapsed) {
+          hasCollapsed = true;
+          collapseTime = frameCount;
+        }
+        if (diversity > 0.15) {
+          hasCollapsed = false;
+        }
+      }
+    };
+
+    const draw = () => {
+      // Draw cells
+      const imageData = ctx.createImageData(W, H);
+      const data = imageData.data;
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const hue = grid[y * cols + x];
+          // HSL to RGB (simplified, saturation 0.5, lightness 0.35)
+          const s = 0.45;
+          const l = hasCollapsed ? 0.18 : 0.30;
+          const c = (1 - Math.abs(2 * l - 1)) * s;
+          const hp = hue / 60;
+          const x2 = c * (1 - Math.abs(hp % 2 - 1));
+          let r1, g1, b1;
+          if (hp < 1) { r1 = c; g1 = x2; b1 = 0; }
+          else if (hp < 2) { r1 = x2; g1 = c; b1 = 0; }
+          else if (hp < 3) { r1 = 0; g1 = c; b1 = x2; }
+          else if (hp < 4) { r1 = 0; g1 = x2; b1 = c; }
+          else if (hp < 5) { r1 = x2; g1 = 0; b1 = c; }
+          else { r1 = c; g1 = 0; b1 = x2; }
+          const m = l - c / 2;
+          const r = Math.round((r1 + m) * 255);
+          const g = Math.round((g1 + m) * 255);
+          const b = Math.round((b1 + m) * 255);
+
+          // Fill CELL x CELL block
+          for (let py = y * CELL; py < Math.min((y + 1) * CELL, H); py++) {
+            for (let px = x * CELL; px < Math.min((x + 1) * CELL, W); px++) {
+              const idx = (py * W + px) * 4;
+              data[idx] = r;
+              data[idx + 1] = g;
+              data[idx + 2] = b;
+              data[idx + 3] = 255;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // Status
+      const pct = (diversity * 100).toFixed(1);
+      statusEl.textContent = `diversity ${pct}%`;
+      if (hasCollapsed) {
+        statusEl.textContent += `  —  collapsed`;
+        statusEl.style.color = '#c07050';
+      } else {
+        statusEl.style.color = '#b8a070';
+      }
+
+      meterEl.innerHTML = `external signals: ${totalExternal}`;
+    };
+
+    const loop = () => {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    };
+    loop();
+  })();
+  </script>
+</body>
+</html>

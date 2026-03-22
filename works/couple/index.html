@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Couple — Vael</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="description" content="Two systems that can't solve themselves. One's failure steers the other.">
+  <meta property="og:title" content="Couple — Vael">
+  <meta property="og:description" content="Two systems that can't solve themselves. One's failure steers the other.">
+  <meta property="og:image" content="https://vael.space/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080808; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+    canvas { display: block; }
+    .nav {
+      position: fixed; top: 16px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .nav a {
+      color: #b8a070; text-decoration: none; font-size: 13px;
+      font-weight: 300; opacity: 0.5; transition: opacity 0.3s;
+    }
+    .nav a:hover { opacity: 1; }
+    .status {
+      position: fixed; bottom: 20px; left: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.4;
+      line-height: 1.6;
+    }
+    .hint {
+      position: fixed; bottom: 20px; right: 20px; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 300; color: #b8a070; opacity: 0.3;
+    }
+    .label {
+      position: fixed; z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; font-weight: 300; opacity: 0.3;
+      pointer-events: none;
+    }
+    .label-left { top: 50%; left: 20px; transform: translateY(-50%); color: #7090c0; }
+    .label-right { top: 50%; right: 20px; transform: translateY(-50%); color: #c07050; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="../">&larr; works</a></div>
+  <canvas id="c"></canvas>
+  <div class="status" id="status"></div>
+  <div class="hint">click to shock one side</div>
+  <div class="label label-left" id="labelL"></div>
+  <div class="label label-right" id="labelR"></div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const labelL = document.getElementById('labelL');
+    const labelR = document.getElementById('labelR');
+    let W, H, midX;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      midX = W / 2;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Two systems: LEFT (blue) and RIGHT (red)
+    // Each has particles trying to form a triangle (3 attractors)
+    // Frustration = can't settle into any stable arrangement
+    const N = 40; // per side
+
+    class System {
+      constructor(cx, color, hue) {
+        this.cx = cx;
+        this.color = color;
+        this.hue = hue;
+        this.particles = [];
+        this.frustration = 0;
+        this.attractors = [];
+        this.resetAttractors();
+
+        for (let i = 0; i < N; i++) {
+          this.particles.push({
+            x: cx + (Math.random() - 0.5) * 200,
+            y: H / 2 + (Math.random() - 0.5) * 200,
+            vx: 0, vy: 0,
+            assigned: i % 3 // which attractor it wants
+          });
+        }
+      }
+
+      resetAttractors() {
+        const r = Math.min(W * 0.15, 120);
+        this.attractors = [
+          { x: this.cx, y: H / 2 - r * 0.8 },
+          { x: this.cx - r * 0.7, y: H / 2 + r * 0.5 },
+          { x: this.cx + r * 0.7, y: H / 2 + r * 0.5 }
+        ];
+      }
+
+      // Frustration: particles want to go to their attractor,
+      // but also repel all neighbors. On a triangle, this is unresolvable
+      // for dense packing — geometric frustration.
+      update(dt, otherFrustration, coupled) {
+        let totalConflict = 0;
+
+        // Modulate behavior based on coupling
+        // If coupled and OTHER system is frustrated → this system gets calmer
+        // (redirect energy away from the frustrated domain)
+        let calmFactor = coupled ? Math.max(0.2, 1.0 - otherFrustration * 0.8) : 1.0;
+        let exploreFactor = coupled ? 1.0 + otherFrustration * 0.5 : 1.0;
+
+        for (let i = 0; i < this.particles.length; i++) {
+          const p = this.particles[i];
+          const a = this.attractors[p.assigned];
+
+          // Attraction to assigned node
+          const dx = a.x - p.x;
+          const dy = a.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) + 0.1;
+          const pullStrength = 0.0008 * calmFactor;
+          p.vx += dx * pullStrength;
+          p.vy += dy * pullStrength;
+
+          // Repulsion from ALL other particles (the frustration source)
+          for (let j = 0; j < this.particles.length; j++) {
+            if (i === j) continue;
+            const o = this.particles[j];
+            const rx = p.x - o.x;
+            const ry = p.y - o.y;
+            const rd = Math.sqrt(rx * rx + ry * ry) + 0.1;
+            if (rd < 60) {
+              const repel = 0.15 / (rd * rd) * exploreFactor;
+              p.vx += rx * repel;
+              p.vy += ry * repel;
+              if (p.assigned !== o.assigned) {
+                totalConflict += 1 / rd;
+              }
+            }
+          }
+
+          // Damping
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+
+          // Update position
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+
+          // Soft boundary
+          const margin = 40;
+          const lx = this.cx - W * 0.22;
+          const rx2 = this.cx + W * 0.22;
+          if (p.x < lx + margin) p.vx += (lx + margin - p.x) * 0.01;
+          if (p.x > rx2 - margin) p.vx += (rx2 - margin - p.x) * 0.01;
+          if (p.y < margin) p.vy += (margin - p.y) * 0.01;
+          if (p.y > H - margin) p.vy += (H - margin - p.y) * 0.01;
+        }
+
+        // Calculate frustration: normalized conflict
+        this.frustration = Math.min(1, totalConflict / (N * 2));
+        return this.frustration;
+      }
+
+      draw(ctx) {
+        const f = this.frustration;
+
+        // Draw attractor triangles (faint)
+        ctx.beginPath();
+        ctx.moveTo(this.attractors[0].x, this.attractors[0].y);
+        ctx.lineTo(this.attractors[1].x, this.attractors[1].y);
+        ctx.lineTo(this.attractors[2].x, this.attractors[2].y);
+        ctx.closePath();
+        ctx.strokeStyle = `hsla(${this.hue}, 40%, 40%, ${0.05 + f * 0.1})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Draw particles
+        for (const p of this.particles) {
+          const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+          const bright = Math.min(1, 0.3 + speed * 2);
+          const size = 1.5 + f * 2;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${this.hue}, 50%, ${40 + bright * 30}%, ${0.4 + bright * 0.5})`;
+          ctx.fill();
+        }
+
+        // Draw frustration indicator
+        const barX = this.cx;
+        const barY = H * 0.08;
+        const barW = 80;
+        ctx.fillStyle = `hsla(${this.hue}, 30%, 30%, 0.2)`;
+        ctx.fillRect(barX - barW / 2, barY, barW, 4);
+        ctx.fillStyle = `hsla(${this.hue}, 60%, 55%, ${0.3 + f * 0.5})`;
+        ctx.fillRect(barX - barW / 2, barY, barW * f, 4);
+      }
+
+      shock() {
+        // Scatter particles randomly — simulates environmental shock
+        for (const p of this.particles) {
+          p.vx += (Math.random() - 0.5) * 8;
+          p.vy += (Math.random() - 0.5) * 8;
+          p.assigned = Math.floor(Math.random() * 3);
+        }
+      }
+    }
+
+    let coupled = true;
+    const left = new System(W * 0.28, '#7090c0', 215);
+    const right = new System(W * 0.72, '#c07050', 15);
+
+    // Draw divider
+    function drawDivider() {
+      const coupling = coupled ? 1 : 0;
+      // Connection lines between systems when coupled
+      if (coupled) {
+        const lf = left.frustration;
+        const rf = right.frustration;
+        // Arrow from frustrated system to the other
+        const arrowAlpha = Math.max(lf, rf) * 0.3;
+        if (lf > 0.2 || rf > 0.2) {
+          ctx.save();
+          ctx.setLineDash([4, 8]);
+          const fromX = lf > rf ? left.cx + W * 0.1 : right.cx - W * 0.1;
+          const toX = lf > rf ? right.cx - W * 0.1 : left.cx + W * 0.1;
+          const dominant = Math.max(lf, rf);
+          ctx.strokeStyle = `rgba(180, 160, 120, ${arrowAlpha})`;
+          ctx.lineWidth = 1 + dominant * 2;
+          ctx.beginPath();
+          ctx.moveTo(fromX, H / 2);
+          ctx.lineTo(toX, H / 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
+      // Divider line
+      ctx.strokeStyle = `rgba(180, 160, 120, 0.08)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(midX, 0);
+      ctx.lineTo(midX, H);
+      ctx.stroke();
+    }
+
+    function updateLabels() {
+      const lf = (left.frustration * 100).toFixed(0);
+      const rf = (right.frustration * 100).toFixed(0);
+      labelL.textContent = `frustration ${lf}%`;
+      labelR.textContent = `frustration ${rf}%`;
+    }
+
+    let frame = 0;
+    function loop() {
+      ctx.fillStyle = 'rgba(8, 8, 8, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      const lf = left.update(1, right.frustration, coupled);
+      const rf = right.update(1, left.frustration, coupled);
+
+      drawDivider();
+      left.draw(ctx);
+      right.draw(ctx);
+
+      if (frame % 10 === 0) {
+        updateLabels();
+        const mode = coupled ? 'coupled' : 'independent';
+        statusEl.textContent = `mode: ${mode}`;
+      }
+
+      frame++;
+      requestAnimationFrame(loop);
+    }
+
+    // Click left half → shock left system
+    // Click right half → shock right system
+    // Spacebar → toggle coupling
+    canvas.addEventListener('click', (e) => {
+      if (e.clientX < midX) {
+        left.shock();
+      } else {
+        right.shock();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        coupled = !coupled;
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      left.cx = W * 0.28;
+      right.cx = W * 0.72;
+      left.resetAttractors();
+      right.resetAttractors();
+    });
+
+    loop();
+  })();
+  </script>
+</body>
+</html>
